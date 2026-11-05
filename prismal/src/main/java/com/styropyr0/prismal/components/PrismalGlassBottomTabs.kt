@@ -385,7 +385,7 @@ fun PrismalGlassBottomTabs(
                             val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
                                     else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
                             // Invert thumb translation so content aligns 1:1 with Layer 1 base row
-                            translationX = -(if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()) + panelOffset
+                            translationX = -(if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat())
                         },
                     verticalAlignment = Alignment.CenterVertically,
                     content = content
