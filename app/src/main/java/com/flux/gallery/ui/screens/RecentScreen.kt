@@ -1,7 +1,13 @@
 package com.flux.gallery.ui.screens
 
+import android.content.Context
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,25 +26,33 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.res.painterResource
-import com.flux.gallery.R
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.flux.gallery.R
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.ui.theme.OneUiBackground
@@ -47,6 +61,7 @@ import com.flux.gallery.ui.theme.OneUiTealHeader
 import com.flux.gallery.ui.theme.OneUiTextSecondary
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.hypot
 
 @Composable
 fun RecentScreen(
@@ -56,11 +71,73 @@ fun RecentScreen(
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val prefs = remember { context.getSharedPreferences("gallery_prefs", Context.MODE_PRIVATE) }
+
+    // Persisted column count (Default 3, Min 2 [Zoom In max], Max 5 [Zoom Out max])
+    var columnCount by remember {
+        mutableIntStateOf(prefs.getInt("grid_columns", 3).coerceIn(2, 5))
+    }
+
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val spacing = 1.5.dp
+    val targetItemWidth = (screenWidth - spacing * (columnCount - 1)) / columnCount
+    val animatedItemWidth by animateDpAsState(
+        targetValue = targetItemWidth,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "gridItemWidthAnim"
+    )
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(OneUiBackground)
             .statusBarsPadding()
+            // Discrete Pinch-to-Zoom Gesture Detector
+            .pointerInput(columnCount) {
+                awaitEachGesture {
+                    var hasTriggered = false
+                    var initialSpan = 0f
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressedPointers = event.changes.filter { it.pressed }
+
+                        if (pressedPointers.size >= 2) {
+                            val p1 = pressedPointers[0].position
+                            val p2 = pressedPointers[1].position
+                            val currentSpan = hypot(p1.x - p2.x, p1.y - p2.y)
+
+                            if (initialSpan == 0f) {
+                                initialSpan = currentSpan
+                            } else if (!hasTriggered && initialSpan > 15f) {
+                                val ratio = currentSpan / initialSpan
+                                // Pinch OUT (fingers spreading apart -> Zoom In -> fewer columns, min 2)
+                                if (ratio > 1.25f && columnCount > 2) {
+                                    columnCount--
+                                    prefs.edit().putInt("grid_columns", columnCount).apply()
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    hasTriggered = true
+                                    pressedPointers.forEach { it.consume() }
+                                }
+                                // Pinch IN (fingers pinching together -> Zoom Out -> more columns, max 5)
+                                else if (ratio < 0.80f && columnCount < 5) {
+                                    columnCount++
+                                    prefs.edit().putInt("grid_columns", columnCount).apply()
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    hasTriggered = true
+                                    pressedPointers.forEach { it.consume() }
+                                }
+                            }
+                        } else if (pressedPointers.isEmpty()) {
+                            // All fingers released, end of gesture cycle
+                            break
+                        }
+                    }
+                }
+            }
     ) {
         // Top Action Bar with 3-dot Menu
         Row(
@@ -114,6 +191,9 @@ fun RecentScreen(
                 items(groups, key = { it.title }) { group ->
                     MediaGroupSection(
                         group = group,
+                        columns = columnCount,
+                        itemWidth = animatedItemWidth,
+                        spacing = spacing,
                         onMediaClick = onMediaClick
                     )
                 }
@@ -130,12 +210,18 @@ fun RecentScreen(
 @Composable
 private fun MediaGroupSection(
     group: MediaDateGroup,
+    columns: Int,
+    itemWidth: Dp,
+    spacing: Dp,
     onMediaClick: (MediaItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            )
             .padding(bottom = 16.dp)
     ) {
         // Section Date Header (Matching One UI Samsung Screenshot)
@@ -162,14 +248,7 @@ private fun MediaGroupSection(
             }
         }
 
-        // 3-Column Grid for Photos (Hairline 1.5dp gap)
-        val configuration = LocalConfiguration.current
-        val screenWidth = configuration.screenWidthDp.dp
-        val columns = 3
-        val spacing = 1.5.dp
-        val totalSpacing = spacing * (columns - 1)
-        val itemWidth = (screenWidth - totalSpacing) / columns
-
+        // Discrete Adaptive Grid for Photos
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing),
