@@ -78,29 +78,6 @@ fun RecentTopHeader(
         isMenuOpen = false
     }
 
-    // Morphing Dimension Animations for 3-Dot Circle -> Contextual Menu Popover Card
-    val menuWidth by animateDpAsState(
-        targetValue = if (isMenuOpen) 220.dp else 40.dp,
-        animationSpec = spring(
-            dampingRatio = if (isMenuOpen) 0.62f else 0.72f,
-            stiffness = 380f
-        ),
-        label = "HeaderMenuWidth"
-    )
-    val menuHeight by animateDpAsState(
-        targetValue = if (isMenuOpen) 192.dp else 40.dp,
-        animationSpec = spring(
-            dampingRatio = if (isMenuOpen) 0.62f else 0.72f,
-            stiffness = 380f
-        ),
-        label = "HeaderMenuHeight"
-    )
-    val menuCorner by animateDpAsState(
-        targetValue = if (isMenuOpen) 18.dp else 20.dp,
-        animationSpec = spring(dampingRatio = 0.62f, stiffness = 380f),
-        label = "HeaderMenuCorner"
-    )
-
     // Tap-on-blur dismiss scrim (full-screen transparent barrier)
     if (isMenuOpen) {
         Box(
@@ -239,29 +216,77 @@ fun RecentTopHeader(
             }
         }
 
-        // 2. Default Mode: 3-Dot Button & Morphing Contextual Popover
+        // 2. Default Mode: 3-Dot Circle Button & High-Performance 60FPS Morphing Popover Card
+        // 2a. 40dp 3-Dot Circle Button (Visible when menu is closed)
         AnimatedVisibility(
-            visible = !isSelectionMode,
-            enter = fadeIn(tween(180)) + scaleIn(
-                initialScale = 0.82f,
-                animationSpec = spring(dampingRatio = 0.68f, stiffness = 420f)
+            visible = !isSelectionMode && !isMenuOpen,
+            enter = fadeIn(tween(120)) + scaleIn(
+                initialScale = 0.8f,
+                transformOrigin = TransformOrigin(1f, 0f),
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 400f)
             ),
-            exit = fadeOut(tween(140)) + scaleOut(
-                targetScale = 0.82f,
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = 500f)
+            exit = fadeOut(tween(80)) + scaleOut(
+                targetScale = 0.8f,
+                transformOrigin = TransformOrigin(1f, 0f),
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 450f)
             ),
             modifier = Modifier.align(Alignment.TopEnd)
         ) {
             Box(
                 modifier = Modifier
-                    .padding(top = 6.dp) // Anchored so 40dp circle sits centered in 52dp header row
-                    .size(width = menuWidth, height = menuHeight)
-                    .graphicsLayer {
-                        transformOrigin = TransformOrigin(1f, 0f)
-                    }
+                    .padding(top = 6.dp)
+                    .size(40.dp)
                     .drawPrismalGlass(
                         backdrop = backdrop,
-                        shape = { RoundedCornerShape(menuCorner) },
+                        shape = { CircleShape },
+                        specular = { PrismalSpecular.Default.copy(alpha = 0.75f) },
+                        effects = {
+                            applyPrismalGlassEffects(
+                                density = density,
+                                adaptiveLuminance = false,
+                                luminance = 0.5f,
+                                blurRadiusPx = with(density) { 8.dp.toPx() },
+                                refractionHeightPx = with(density) { 16.dp.toPx() },
+                                refractionAmountPx = with(density) { 14.dp.toPx() }
+                            )
+                        },
+                        onDrawSurface = { drawRect(containerColor) }
+                    )
+                    .clip(CircleShape)
+                    .clickable { isMenuOpen = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_more_vert),
+                    contentDescription = "Opsi lainnya",
+                    tint = FluxTheme.colors.headerText,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // 2b. High-Performance 60FPS Popover Menu Card (Anchored to top-end, hardware matrix scale)
+        AnimatedVisibility(
+            visible = !isSelectionMode && isMenuOpen,
+            enter = fadeIn(tween(140)) + scaleIn(
+                initialScale = 0.18f,
+                transformOrigin = TransformOrigin(1f, 0f),
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 380f)
+            ),
+            exit = fadeOut(tween(100)) + scaleOut(
+                targetScale = 0.18f,
+                transformOrigin = TransformOrigin(1f, 0f),
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 450f)
+            ),
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .size(width = 220.dp, height = 192.dp)
+                    .drawPrismalGlass(
+                        backdrop = backdrop,
+                        shape = { RoundedCornerShape(18.dp) },
                         specular = { PrismalSpecular.Default.copy(alpha = 0.75f) },
                         effects = {
                             applyPrismalGlassEffects(
@@ -275,89 +300,73 @@ fun RecentTopHeader(
                         },
                         onDrawSurface = { drawRect(containerColor) }
                     )
-                    .clip(RoundedCornerShape(menuCorner)),
+                    .clip(RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.TopEnd
             ) {
-                if (!isMenuOpen) {
+                Column(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    HeaderContextMenuItem(
+                        text = "Pilih",
+                        onClick = {
+                            isMenuOpen = false
+                            onEnterSelectionMode()
+                        }
+                    )
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clickable { isMenuOpen = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_more_vert),
-                            contentDescription = "Opsi lainnya",
-                            tint = FluxTheme.colors.headerText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .width(220.dp)
-                            .padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        HeaderContextMenuItem(
-                            text = "Pilih",
-                            onClick = {
-                                isMenuOpen = false
-                                onEnterSelectionMode()
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.6.dp)
-                                .background(dividerColor)
-                        )
-                        HeaderContextMenuItem(
-                            text = "Buat",
-                            onClick = {
-                                isMenuOpen = false
-                                onCreateClick()
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.6.dp)
-                                .background(dividerColor)
-                        )
-                        HeaderContextMenuItem(
-                            text = "Mulai Slideshow",
-                            onClick = {
-                                isMenuOpen = false
-                                onStartSlideshow()
-                            }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.6.dp)
-                                .background(dividerColor)
-                        )
-                        // 4. Blur Thumbnail Privacy Toggle Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Blur Thumbnail",
-                                color = FluxTheme.colors.textPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            PrismalGlassToggle(
-                                selected = { isBlurThumbnails },
-                                onSelect = onBlurThumbnailsChange,
-                                backdrop = backdrop
-                            )
+                            .fillMaxWidth()
+                            .height(0.6.dp)
+                            .background(dividerColor)
+                    )
+                    HeaderContextMenuItem(
+                        text = "Buat",
+                        onClick = {
+                            isMenuOpen = false
+                            onCreateClick()
                         }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.6.dp)
+                            .background(dividerColor)
+                    )
+                    HeaderContextMenuItem(
+                        text = "Mulai Slideshow",
+                        onClick = {
+                            isMenuOpen = false
+                            onStartSlideshow()
+                        }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.6.dp)
+                            .background(dividerColor)
+                    )
+                    // 4. Blur Thumbnail Privacy Toggle Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Blur Thumbnail",
+                            color = FluxTheme.colors.textPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        PrismalGlassToggle(
+                            selected = { isBlurThumbnails },
+                            onSelect = onBlurThumbnailsChange,
+                            backdrop = backdrop
+                        )
                     }
                 }
             }

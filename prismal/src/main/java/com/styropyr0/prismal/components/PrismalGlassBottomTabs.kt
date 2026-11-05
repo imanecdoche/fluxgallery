@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -328,12 +329,14 @@ fun PrismalGlassBottomTabs(
                 )
         )
 
-        // 3. Tab Items Row (Single clean layer rendered on top: zero ghosting, crisp icons & text)
+        // 3. Tab Items: Dual-Layer Geometric Clip Mask
+        // Layer 1: Inactive Base Row (Inactive color & normal outline icons)
         CompositionLocalProvider(
             LocalPrismalBottomTabScale provides {
                 lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
             },
-            LocalPrismalBottomTabHighlightedIndex provides { highlightedTabIndex }
+            LocalPrismalBottomTabHighlightedIndex provides { highlightedTabIndex },
+            LocalPrismalTabIsActive provides false
         ) {
             Row(
                 Modifier
@@ -346,6 +349,48 @@ fun PrismalGlassBottomTabs(
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
+        }
+
+        // Layer 2: Active Masked Row (Teal color & filled icons) physically clipped to sliding droplet thumb bounds
+        val tabWidthDp = with(density) { tabWidth.toDp() }
+        val totalWidthDp = with(density) { constraints.maxWidth.toDp() }
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .graphicsLayer {
+                    val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
+                            else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
+                    translationX = if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()
+                    alpha = dropletAlpha
+                    scaleX = dropletScaleTarget
+                    scaleY = dropletScaleTarget
+                    clip = true
+                    shape = PrismalCapsule()
+                }
+                .height(56.dp)
+                .fillMaxWidth(1f / tabsCount)
+        ) {
+            CompositionLocalProvider(
+                LocalPrismalBottomTabScale provides {
+                    lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
+                },
+                LocalPrismalBottomTabHighlightedIndex provides { highlightedTabIndex },
+                LocalPrismalTabIsActive provides true
+            ) {
+                Row(
+                    modifier = Modifier
+                        .height(56.dp)
+                        .requiredWidth(totalWidthDp - 8.dp)
+                        .graphicsLayer {
+                            val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
+                                    else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
+                            // Invert thumb translation so content aligns 1:1 with Layer 1 base row
+                            translationX = -(if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()) + panelOffset
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = content
+                )
+            }
         }
 
         // 4. Interactive Touch & Drag Surface (Covers entire navbar: fluid 1:1 drag tracking + magnetic snap)

@@ -21,6 +21,9 @@ internal val LocalPrismalBottomTabScale = staticCompositionLocalOf { { 1f } }
 /** Index of the tab that should appear selected (follows the droplet while dragging). */
 val LocalPrismalBottomTabHighlightedIndex = staticCompositionLocalOf { { 0 } }
 
+/** Whether the currently evaluated tab layer represents the active (masked) state inside the droplet thumb. */
+val LocalPrismalTabIsActive = staticCompositionLocalOf { false }
+
 /**
  * Single tab item for use inside [PrismalGlassBottomTabs].
  *

@@ -111,6 +111,13 @@ fun RecentScreen(
     // Pinch-to-zoom multi-touch scroll lock state
     var isPinchZooming by remember { mutableStateOf(false) }
 
+    // Hoisted Thumbnail Blur Animation (Single screen-level driver instead of N-section drivers)
+    val thumbnailBlurRadius by animateDpAsState(
+        targetValue = if (isBlurThumbnails) 24.dp else 0.dp,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+        label = "ThumbnailBlurAnim"
+    )
+
     val spacing = 1.5.dp
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -126,6 +133,12 @@ fun RecentScreen(
 
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
+
+                        // 60FPS Optimization: Bypass gesture processing entirely on 1-finger scrolls
+                        if (event.changes.size < 2 && !isPinchZooming) {
+                            continue
+                        }
+
                         val pressedPointers = event.changes.filter { it.pressed }
 
                         if (pressedPointers.size >= 2) {
@@ -205,7 +218,7 @@ fun RecentScreen(
                         spacing = spacing,
                         isSelectionMode = isSelectionMode,
                         selectedItemIds = selectedItemIds,
-                        isBlurThumbnails = isBlurThumbnails,
+                        blurRadius = thumbnailBlurRadius,
                         onMediaClick = onMediaClick,
                         onEnterSelectionMode = onEnterSelectionMode,
                         onToggleSelection = onToggleSelection
@@ -224,7 +237,7 @@ private fun MediaGroupSection(
     spacing: Dp,
     isSelectionMode: Boolean,
     selectedItemIds: Set<Long>,
-    isBlurThumbnails: Boolean = false,
+    blurRadius: Dp = 0.dp,
     onMediaClick: (MediaItem) -> Unit,
     onEnterSelectionMode: (MediaItem) -> Unit,
     onToggleSelection: (MediaItem) -> Unit,
@@ -266,12 +279,6 @@ private fun MediaGroupSection(
         val chunkedItems = remember(group.items, columns) {
             group.items.chunked(columns)
         }
-
-        val blurRadiusAnim by animateDpAsState(
-            targetValue = if (isBlurThumbnails) 24.dp else 0.dp,
-            animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
-            label = "ThumbnailBlurAnim"
-        )
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -319,7 +326,7 @@ private fun MediaGroupSection(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .then(
-                                        if (blurRadiusAnim > 0.dp) Modifier.blur(blurRadiusAnim)
+                                        if (blurRadius > 0.dp) Modifier.blur(blurRadius)
                                         else Modifier
                                     )
                             )

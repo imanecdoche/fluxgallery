@@ -147,11 +147,12 @@ fun FloatingGlassBottomNavBar(
                     modifier = Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val isLayerActive = com.styropyr0.prismal.components.LocalPrismalTabIsActive.current
                     val currentHighlight = com.styropyr0.prismal.components.LocalPrismalBottomTabHighlightedIndex.current()
                     GalleryTab.entries.forEach { tab ->
-                        val isSelected = tab.ordinal == currentHighlight
-                        val itemColor = if (isSelected) FluxTheme.colors.activeTeal else FluxTheme.colors.inactive
-                        val iconRes = if (isSelected) tab.filledIconRes else tab.normalIconRes
+                        val isSelected = isLayerActive || tab.ordinal == currentHighlight
+                        val itemColor = if (isLayerActive) FluxTheme.colors.activeTeal else FluxTheme.colors.inactive
+                        val iconRes = if (isLayerActive) tab.filledIconRes else tab.normalIconRes
 
                         PrismalGlassBottomTab(
                             onClick = { onTabSelected(tab) }
