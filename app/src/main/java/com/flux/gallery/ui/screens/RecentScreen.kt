@@ -331,46 +331,37 @@ private fun MediaGroupSection(
                                     )
                             )
 
-                            // Animated Top-Right Selection Checkmark Badge
+                            // Animated Top-Right Selection Checkmark Badge (Only visible when item is selected)
                             androidx.compose.animation.AnimatedVisibility(
-                                visible = isSelectionMode,
+                                visible = isSelectionMode && isSelected,
                                 enter = scaleIn(spring(dampingRatio = 0.8f, stiffness = 420f)) + fadeIn(),
                                 exit = scaleOut() + fadeOut(),
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
                                     .padding(6.dp)
                             ) {
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(FluxTheme.colors.activeTeal, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Canvas(modifier = Modifier.size(24.dp)) {
-                                            val path = Path().apply {
-                                                moveTo(size.width * 0.29f, size.height * 0.54f)
-                                                lineTo(size.width * 0.44f, size.height * 0.70f)
-                                                lineTo(size.width * 0.71f, size.height * 0.32f)
-                                            }
-                                            drawPath(
-                                                path = path,
-                                                color = Color.White,
-                                                style = Stroke(
-                                                    width = 2.4.dp.toPx(),
-                                                    cap = StrokeCap.Round,
-                                                    join = StrokeJoin.Round
-                                                )
-                                            )
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .background(FluxTheme.colors.activeTeal, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Canvas(modifier = Modifier.size(20.dp)) {
+                                        val path = Path().apply {
+                                            moveTo(size.width * 0.29f, size.height * 0.54f)
+                                            lineTo(size.width * 0.44f, size.height * 0.70f)
+                                            lineTo(size.width * 0.71f, size.height * 0.32f)
                                         }
+                                        drawPath(
+                                            path = path,
+                                            color = Color.White,
+                                            style = Stroke(
+                                                width = 2.0.dp.toPx(),
+                                                cap = StrokeCap.Round,
+                                                join = StrokeJoin.Round
+                                            )
+                                        )
                                     }
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(24.dp)
-                                            .background(Color.Black.copy(alpha = 0.25f), CircleShape)
-                                            .border(1.8.dp, Color.White, CircleShape)
-                                    )
                                 }
                             }
 

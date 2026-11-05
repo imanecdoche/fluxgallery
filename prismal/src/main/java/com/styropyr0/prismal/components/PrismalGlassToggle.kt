@@ -75,11 +75,10 @@ fun PrismalGlassToggle(
     val touchSlop = with(density) { 6.dp.toPx() }
     val animationScope = rememberCoroutineScope()
     var totalDragDistance by remember { mutableFloatStateOf(0f) }
-    var fraction by remember { mutableFloatStateOf(if (selected()) 1f else 0f) }
     val dampedDragAnimation = remember(animationScope) {
         PrismalSpringMotion(
             animationScope = animationScope,
-            initialValue = fraction,
+            initialValue = if (selected()) 1f else 0f,
             valueRange = 0f..1f,
             visibilityThreshold = 0.001f,
             initialScale = 1f,
@@ -90,37 +89,28 @@ fun PrismalGlassToggle(
             onDragStopped = {
                 val wasTrueDrag = totalDragDistance > touchSlop
                 val newSelected = if (wasTrueDrag) {
-                    fraction >= 0.5f
+                    value >= 0.5f
                 } else {
                     !selected()
                 }
-                fraction = if (newSelected) 1f else 0f
                 onSelect(newSelected)
                 totalDragDistance = 0f
             },
             onDrag = { _, dragAmount ->
                 totalDragDistance += kotlin.math.abs(dragAmount.x)
                 val delta = dragAmount.x / dragWidth
-                fraction =
-                    if (isLtr) (fraction + delta).fastCoerceIn(0f, 1f)
-                    else (fraction - delta).fastCoerceIn(0f, 1f)
+                val nextValue =
+                    if (isLtr) (value + delta).fastCoerceIn(0f, 1f)
+                    else (value - delta).fastCoerceIn(0f, 1f)
+                snapToValue(nextValue)
             }
         )
-    }
-    LaunchedEffect(dampedDragAnimation) {
-        snapshotFlow { fraction }
-            .collectLatest { current ->
-                dampedDragAnimation.updateValue(current)
-            }
     }
     LaunchedEffect(dampedDragAnimation, selected) {
         snapshotFlow { selected() }
             .collectLatest { isSelected ->
                 val target = if (isSelected) 1f else 0f
-                if (target != fraction) {
-                    fraction = target
-                    dampedDragAnimation.animateToValue(target)
-                }
+                dampedDragAnimation.animateToValue(target)
             }
     }
 
@@ -132,7 +122,9 @@ fun PrismalGlassToggle(
     parentGlassLayer?.readSamplingState()
 
     Box(
-        modifier,
+        modifier
+            .semantics { role = Role.Switch }
+            .then(dampedDragAnimation.modifier),
         contentAlignment = Alignment.CenterStart
     ) {
         Box(
@@ -155,8 +147,6 @@ fun PrismalGlassToggle(
                         if (isLtr) lerp(padding, padding + dragWidth, trackFraction)
                         else lerp(-padding, -(padding + dragWidth), trackFraction)
                 }
-                .semantics { role = Role.Switch }
-                .then(dampedDragAnimation.modifier)
                 .drawPrismalGlass(
                     backdrop = rememberPrismalMergedSource(
                         underlayBackdrop,

@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -149,9 +150,10 @@ fun FloatingGlassBottomNavBar(
                 ) {
                     val isLayerActive = com.styropyr0.prismal.components.LocalPrismalTabIsActive.current
                     val currentHighlight = com.styropyr0.prismal.components.LocalPrismalBottomTabHighlightedIndex.current()
+                    val inactiveTabColor = if (FluxTheme.colors.isDark) Color.White.copy(alpha = 0.90f) else FluxTheme.colors.inactive
                     GalleryTab.entries.forEach { tab ->
                         val isSelected = isLayerActive || tab.ordinal == currentHighlight
-                        val itemColor = if (isLayerActive) FluxTheme.colors.activeTeal else FluxTheme.colors.inactive
+                        val itemColor = if (isLayerActive) FluxTheme.colors.activeTeal else inactiveTabColor
                         val iconRes = tab.normalIconRes
 
                         PrismalGlassBottomTab(
