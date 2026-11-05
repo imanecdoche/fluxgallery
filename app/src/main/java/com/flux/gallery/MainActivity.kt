@@ -37,8 +37,7 @@ import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
 import com.flux.gallery.ui.screens.SplashScreenOverlay
 import com.flux.gallery.ui.theme.FluxGalleryTheme
-import com.flux.gallery.ui.theme.OneUiBackground
-import com.flux.gallery.ui.theme.OneUiTextSecondary
+import com.flux.gallery.ui.theme.FluxTheme
 import com.styropyr0.prismal.sources.prismalGlassLayer
 import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import kotlinx.coroutines.delay
@@ -149,7 +148,7 @@ fun MainGalleryScreen() {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(OneUiBackground)
+                    .background(FluxTheme.colors.background)
                     .prismalGlassLayer(backdropLayer)
             ) {
                 when (selectedTab) {
@@ -218,7 +217,7 @@ private fun PlaceholderTabContent(title: String) {
     ) {
         Text(
             text = title,
-            color = OneUiTextSecondary,
+            color = FluxTheme.colors.textSecondary,
             fontSize = 16.sp
         )
     }

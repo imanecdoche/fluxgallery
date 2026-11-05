@@ -25,10 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flux.gallery.data.model.MediaItem
-import com.flux.gallery.ui.theme.OneUiDivider
-import com.flux.gallery.ui.theme.OneUiSurface
-import com.flux.gallery.ui.theme.OneUiTextPrimary
-import com.flux.gallery.ui.theme.OneUiTextSecondary
+import com.flux.gallery.ui.theme.FluxTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,8 +53,8 @@ fun PhotoDetailsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = OneUiSurface,
-        scrimColor = Color.Black.copy(alpha = 0.35f),
+        containerColor = FluxTheme.colors.surface,
+        scrimColor = Color.Black.copy(alpha = 0.55f),
         modifier = modifier
     ) {
         Column(
@@ -76,27 +73,27 @@ fun PhotoDetailsBottomSheet(
                         text = formattedDateTime,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = OneUiTextPrimary
+                        color = FluxTheme.colors.textPrimary
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = item.displayName,
                         fontSize = 12.sp,
-                        color = OneUiTextSecondary,
+                        color = FluxTheme.colors.textSecondary,
                         maxLines = 1
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = displayPath,
                         fontSize = 12.sp,
-                        color = OneUiTextSecondary,
+                        color = FluxTheme.colors.textSecondary,
                         maxLines = 1
                     )
                 }
 
                 Text(
                     text = "Ubah",
-                    color = Color(0xFF1D70B8),
+                    color = FluxTheme.colors.activeTeal,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
@@ -112,7 +109,7 @@ fun PhotoDetailsBottomSheet(
                 text = "Info gambar",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = OneUiTextPrimary
+                color = FluxTheme.colors.textPrimary
             )
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -127,7 +124,7 @@ fun PhotoDetailsBottomSheet(
             Text(
                 text = "$sizeText  |  $dimensionText  |  $mpText",
                 fontSize = 13.sp,
-                color = OneUiTextSecondary
+                color = FluxTheme.colors.textSecondary
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -135,14 +132,14 @@ fun PhotoDetailsBottomSheet(
             // Row 3: # Tambah tag Button
             Box(
                 modifier = Modifier
-                    .border(1.dp, OneUiDivider, RoundedCornerShape(16.dp))
-                    .background(Color(0xFFF9FAFA), RoundedCornerShape(16.dp))
+                    .border(1.dp, FluxTheme.colors.divider, RoundedCornerShape(16.dp))
+                    .background(FluxTheme.colors.surfaceVariant, RoundedCornerShape(16.dp))
                     .clickable { /* Add tag action */ }
                     .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Text(
                     text = "# Tambah tag",
-                    color = OneUiTextPrimary,
+                    color = FluxTheme.colors.textPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )

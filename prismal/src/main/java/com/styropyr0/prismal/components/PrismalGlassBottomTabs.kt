@@ -130,11 +130,12 @@ fun PrismalGlassBottomTabs(
     pressGlow: Float = 1f,
     dropletContentScaleY: Float = 0.90f,
     renderWithLowOverhead: Boolean = true,
+    containerColor: Color? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     val isLightTheme = !isSystemInDarkTheme()
-    val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-    else Color(0xFF121212).copy(0.4f)
+    val resolvedContainerColor = containerColor ?: if (isLightTheme) Color(0xFFFAFAFA).copy(0.45f)
+    else Color(0xFF1C1C1E).copy(0.65f)
 
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
@@ -247,7 +248,7 @@ fun PrismalGlassBottomTabs(
                         scaleX = scale
                         scaleY = scale
                     },
-                    onDrawSurface = { drawRect(containerColor) }
+                    onDrawSurface = { drawRect(resolvedContainerColor) }
                 )
                 .then(interactivePrismalSpecular.modifier)
                 .height(64.dp)

@@ -72,6 +72,9 @@ dependencies {
     // Prismal Liquid Glass (AGSL)
     implementation(project(":prismal"))
 
+    // Compose Cupertino (iOS / Apple Design components)
+    implementation("io.github.alexzhirkevich:cupertino:0.1.0-alpha04")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

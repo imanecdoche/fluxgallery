@@ -52,9 +52,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.flux.gallery.R
 import com.flux.gallery.data.model.MediaItem
-import com.flux.gallery.ui.theme.OneUiDivider
-import com.flux.gallery.ui.theme.OneUiSurface
-import com.flux.gallery.ui.theme.OneUiTextPrimary
+import com.flux.gallery.ui.theme.FluxTheme
 
 @Composable
 fun PhotoViewerScreen(
@@ -79,7 +77,7 @@ fun PhotoViewerScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.Black)
     ) {
         // Horizontal Pager for Fullscreen Media
         HorizontalPager(
@@ -115,7 +113,7 @@ fun PhotoViewerScreen(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_arrow_back),
                         contentDescription = "Kembali",
-                        tint = OneUiTextPrimary,
+                        tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -128,7 +126,7 @@ fun PhotoViewerScreen(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_rotate),
                         contentDescription = "Remaster / Info",
-                        tint = OneUiTextPrimary,
+                        tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -170,7 +168,7 @@ fun PhotoViewerScreen(
                         Icon(
                             painter = painterResource(id = favIconRes),
                             contentDescription = "Favorit",
-                            tint = if (isFavorite) Color(0xFFE53935) else OneUiTextPrimary,
+                            tint = if (isFavorite) Color(0xFFE53935) else Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -194,7 +192,7 @@ fun PhotoViewerScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_edit),
                             contentDescription = "Edit",
-                            tint = OneUiTextPrimary,
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -215,7 +213,7 @@ fun PhotoViewerScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_share),
                             contentDescription = "Bagikan",
-                            tint = OneUiTextPrimary,
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -229,7 +227,7 @@ fun PhotoViewerScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_trash),
                             contentDescription = "Hapus",
-                            tint = OneUiTextPrimary,
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -240,7 +238,7 @@ fun PhotoViewerScreen(
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_more_vert),
                                 contentDescription = "Lainnya",
-                                tint = OneUiTextPrimary,
+                                tint = Color.White,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -250,12 +248,12 @@ fun PhotoViewerScreen(
                             expanded = showContextMenu,
                             onDismissRequest = { showContextMenu = false },
                             shape = RoundedCornerShape(18.dp),
-                            containerColor = OneUiSurface,
+                            containerColor = FluxTheme.colors.surface,
                             modifier = Modifier.width(220.dp)
                         ) {
                             // Group 1: Rincian
                             DropdownMenuItem(
-                                text = { Text("Rincian", color = OneUiTextPrimary, fontSize = 15.sp) },
+                                text = { Text("Rincian", color = FluxTheme.colors.textPrimary, fontSize = 15.sp) },
                                 onClick = {
                                     showContextMenu = false
                                     showDetailsSheet = true
@@ -263,14 +261,14 @@ fun PhotoViewerScreen(
                             )
 
                             HorizontalDivider(
-                                color = OneUiDivider,
+                                color = FluxTheme.colors.divider,
                                 thickness = 0.6.dp,
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
 
                             // Group 2: Clipboard
                             DropdownMenuItem(
-                                text = { Text("Salin ke clipboard", color = OneUiTextPrimary, fontSize = 15.sp) },
+                                text = { Text("Salin ke clipboard", color = FluxTheme.colors.textPrimary, fontSize = 15.sp) },
                                 onClick = {
                                     showContextMenu = false
                                     currentItem?.let { item ->
@@ -282,7 +280,7 @@ fun PhotoViewerScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Tempel dari clipboard", color = OneUiTextPrimary, fontSize = 15.sp) },
+                                text = { Text("Tempel dari clipboard", color = FluxTheme.colors.textPrimary, fontSize = 15.sp) },
                                 onClick = {
                                     showContextMenu = false
                                     Toast.makeText(context, "Tidak ada data clipboard", Toast.LENGTH_SHORT).show()
@@ -290,14 +288,14 @@ fun PhotoViewerScreen(
                             )
 
                             HorizontalDivider(
-                                color = OneUiDivider,
+                                color = FluxTheme.colors.divider,
                                 thickness = 0.6.dp,
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
 
                             // Group 3: Wallpaper & Cetak
                             DropdownMenuItem(
-                                text = { Text("Atur sebagai wallpaper", color = OneUiTextPrimary, fontSize = 15.sp) },
+                                text = { Text("Atur sebagai wallpaper", color = FluxTheme.colors.textPrimary, fontSize = 15.sp) },
                                 onClick = {
                                     showContextMenu = false
                                     currentItem?.let { item ->
@@ -315,7 +313,7 @@ fun PhotoViewerScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Cetak", color = OneUiTextPrimary, fontSize = 15.sp) },
+                                text = { Text("Cetak", color = FluxTheme.colors.textPrimary, fontSize = 15.sp) },
                                 onClick = {
                                     showContextMenu = false
                                     Toast.makeText(context, "Mempersiapkan dokumen cetak...", Toast.LENGTH_SHORT).show()

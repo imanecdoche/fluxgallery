@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -51,10 +50,8 @@ import coil.request.ImageRequest
 import com.flux.gallery.R
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
-import com.flux.gallery.ui.theme.OneUiBackground
-import com.flux.gallery.ui.theme.OneUiTealActive
-import com.flux.gallery.ui.theme.OneUiTealHeader
-import com.flux.gallery.ui.theme.OneUiTextSecondary
+import com.flux.gallery.ui.theme.FluxTheme
+import io.github.alexzhirkevich.cupertino.CupertinoActivityIndicator
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.hypot
@@ -81,7 +78,7 @@ fun RecentScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(OneUiBackground)
+            .background(FluxTheme.colors.background)
             .statusBarsPadding()
             // Discrete Pinch-to-Zoom Gesture Detector
             .pointerInput(columnCount) {
@@ -139,7 +136,7 @@ fun RecentScreen(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_more_vert),
                     contentDescription = "Opsi lainnya",
-                    tint = OneUiTealHeader,
+                    tint = FluxTheme.colors.headerText,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -152,9 +149,9 @@ fun RecentScreen(
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    color = OneUiTealActive,
-                    strokeWidth = 2.5.dp
+                CupertinoActivityIndicator(
+                    color = FluxTheme.colors.activeTeal,
+                    modifier = Modifier.size(32.dp)
                 )
             }
         } else if (groups.isEmpty()) {
@@ -166,7 +163,7 @@ fun RecentScreen(
             ) {
                 Text(
                     text = "Tidak ada foto atau video",
-                    color = OneUiTextSecondary,
+                    color = FluxTheme.colors.textSecondary,
                     fontSize = 15.sp
                 )
             }
@@ -220,7 +217,7 @@ private fun MediaGroupSection(
                 text = group.title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = OneUiTealHeader
+                color = FluxTheme.colors.headerText
             )
 
             if (!group.locationSubtext.isNullOrBlank()) {
@@ -228,7 +225,7 @@ private fun MediaGroupSection(
                 Text(
                     text = group.locationSubtext,
                     fontSize = 13.sp,
-                    color = OneUiTealHeader.copy(alpha = 0.85f)
+                    color = FluxTheme.colors.textSecondary
                 )
             }
         }

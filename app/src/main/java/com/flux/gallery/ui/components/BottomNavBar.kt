@@ -15,8 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flux.gallery.R
-import com.flux.gallery.ui.theme.OneUiInactive
-import com.flux.gallery.ui.theme.OneUiTealActive
+import com.flux.gallery.ui.theme.FluxTheme
 import com.styropyr0.prismal.PrismalBackdrop
 import com.styropyr0.prismal.components.PrismalGlassBottomTab
 import com.styropyr0.prismal.components.PrismalGlassBottomTabs
@@ -55,6 +54,7 @@ fun FloatingGlassBottomNavBar(
         refractionHeight = 22.dp,
         refractionAmount = 20.dp,
         dropletChromaticAberration = 0.8f,
+        containerColor = FluxTheme.colors.glassContainer,
         modifier = modifier
             .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 10.dp)
@@ -62,7 +62,7 @@ fun FloatingGlassBottomNavBar(
         val currentHighlight = com.styropyr0.prismal.components.LocalPrismalBottomTabHighlightedIndex.current()
         GalleryTab.entries.forEach { tab ->
             val isSelected = tab.ordinal == currentHighlight
-            val itemColor = if (isSelected) OneUiTealActive else OneUiInactive
+            val itemColor = if (isSelected) FluxTheme.colors.activeTeal else FluxTheme.colors.inactive
             val iconRes = if (isSelected) tab.filledIconRes else tab.normalIconRes
 
             PrismalGlassBottomTab(

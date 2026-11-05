@@ -38,8 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flux.gallery.R
-import com.flux.gallery.ui.theme.OneUiInactive
-import com.flux.gallery.ui.theme.OneUiTextPrimary
+import com.flux.gallery.ui.theme.FluxTheme
 import com.styropyr0.prismal.PrismalBackdrop
 import com.styropyr0.prismal.drawPrismalGlass
 import com.styropyr0.prismal.effects.applyPrismalGlassEffects
@@ -53,12 +52,10 @@ fun FloatingGlassMenuSheet(
     onItemClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
     val density = LocalDensity.current
-    val surfaceColor = if (isLightTheme) Color(0xFFFCFCFD).copy(alpha = 0.65f)
-    else Color(0xFF18181A).copy(alpha = 0.70f)
-    val dividerColor = if (isLightTheme) Color.Black.copy(alpha = 0.07f)
-    else Color.White.copy(alpha = 0.08f)
+    val surfaceColor = FluxTheme.colors.glassSurface
+    val dividerColor = FluxTheme.colors.glassDivider
+    val dragHandleColor = FluxTheme.colors.dragHandle
 
     if (visible) {
         // Scrim backdrop (tap to dismiss)
@@ -116,7 +113,7 @@ fun FloatingGlassMenuSheet(
                 modifier = Modifier
                     .size(width = 36.dp, height = 4.dp)
                     .background(
-                        color = if (isLightTheme) Color.Black.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.22f),
+                        color = dragHandleColor,
                         shape = CircleShape
                     )
             )
@@ -198,13 +195,13 @@ private fun MenuCategoryItem(
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = title,
-            tint = OneUiTextPrimary,
+            tint = FluxTheme.colors.textPrimary,
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = title,
-            color = OneUiTextPrimary,
+            color = FluxTheme.colors.textPrimary,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Medium
         )
@@ -229,13 +226,13 @@ private fun MenuActionRow(
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = title,
-            tint = OneUiTextPrimary,
+            tint = FluxTheme.colors.textPrimary,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            color = OneUiTextPrimary,
+            color = FluxTheme.colors.textPrimary,
             fontSize = 14.5.sp,
             fontWeight = FontWeight.Normal
         )

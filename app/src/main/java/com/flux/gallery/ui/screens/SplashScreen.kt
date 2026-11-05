@@ -14,14 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.flux.gallery.R
-import com.flux.gallery.ui.theme.OneUiBackground
-import com.flux.gallery.ui.theme.OneUiSurface
+import com.flux.gallery.ui.theme.FluxTheme
 import com.flux.gallery.ui.theme.SplashBlue
 
 @Composable
@@ -30,6 +30,7 @@ fun SplashScreenOverlay(
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
+    val fluxColors = FluxTheme.colors
 
     if (!view.isInEditMode) {
         SideEffect {
@@ -44,10 +45,10 @@ fun SplashScreenOverlay(
                 insetsController.isAppearanceLightNavigationBars = false
             } else {
                 // Restored Gallery Theme
-                window.statusBarColor = OneUiBackground.toArgb()
-                window.navigationBarColor = OneUiSurface.toArgb()
-                insetsController.isAppearanceLightStatusBars = true
-                insetsController.isAppearanceLightNavigationBars = true
+                window.statusBarColor = fluxColors.background.toArgb()
+                window.navigationBarColor = Color.Transparent.toArgb()
+                insetsController.isAppearanceLightStatusBars = !fluxColors.isDark
+                insetsController.isAppearanceLightNavigationBars = !fluxColors.isDark
             }
         }
     }
