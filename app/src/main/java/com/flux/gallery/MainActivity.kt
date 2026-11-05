@@ -27,12 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import android.content.Context
+import android.content.Intent
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.data.repository.MediaRepository
 import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
 import com.flux.gallery.ui.components.FloatingGlassMenuSheet
 import com.flux.gallery.ui.components.GalleryTab
+import com.flux.gallery.ui.components.SelectionBottomNavBar
+import com.flux.gallery.ui.components.SelectionMoreGlassSheet
 import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
 import com.flux.gallery.ui.screens.SplashScreenOverlay
@@ -64,6 +68,9 @@ fun MainGalleryScreen() {
 
     var selectedTab by remember { mutableStateOf(GalleryTab.GAMBAR) }
     var isMenuSheetOpen by remember { mutableStateOf(false) }
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedItemIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var isSelectionMoreSheetOpen by remember { mutableStateOf(false) }
     var mediaGroups by remember { mutableStateOf<List<MediaDateGroup>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isSplashVisible by remember { mutableStateOf(true) }
@@ -133,6 +140,11 @@ fun MainGalleryScreen() {
         isMenuSheetOpen = false
     }
 
+    BackHandler(enabled = isSelectionMode) {
+        isSelectionMode = false
+        selectedItemIds = emptySet()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (viewingMediaIndex != null) {
             BackHandler {
@@ -156,11 +168,35 @@ fun MainGalleryScreen() {
                         RecentScreen(
                             groups = mediaGroups,
                             isLoading = isLoading,
+                            isSelectionMode = isSelectionMode,
+                            selectedItemIds = selectedItemIds,
                             onMediaClick = { clickedItem ->
                                 val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
                                 if (index != -1) {
                                     viewingMediaIndex = index
                                 }
+                            },
+                            onEnterSelectionMode = { item ->
+                                isMenuSheetOpen = false
+                                isSelectionMode = true
+                                selectedItemIds = setOf(item.id)
+                            },
+                            onToggleSelection = { item ->
+                                selectedItemIds = if (selectedItemIds.contains(item.id)) {
+                                    selectedItemIds - item.id
+                                } else {
+                                    selectedItemIds + item.id
+                                }
+                            },
+                            onSelectAll = {
+                                selectedItemIds = flattenedMediaList.map { it.id }.toSet()
+                            },
+                            onClearSelection = {
+                                selectedItemIds = emptySet()
+                            },
+                            onExitSelectionMode = {
+                                isSelectionMode = false
+                                selectedItemIds = emptySet()
                             },
                             onMenuClick = { /* Three-dot options menu */ }
                         )
@@ -189,18 +225,95 @@ fun MainGalleryScreen() {
             )
 
             // Floating Pill Liquid Glass Navbar (iOS Refractive Glass Style via Prismal AGSL)
-            FloatingGlassBottomNavBar(
-                selectedTab = if (isMenuSheetOpen) GalleryTab.MENU else selectedTab,
-                onTabSelected = { newTab ->
-                    if (newTab == GalleryTab.MENU) {
-                        isMenuSheetOpen = !isMenuSheetOpen
-                    } else {
-                        isMenuSheetOpen = false
-                        selectedTab = newTab
-                    }
-                },
+            if (!isSelectionMode) {
+                FloatingGlassBottomNavBar(
+                    selectedTab = if (isMenuSheetOpen) GalleryTab.MENU else selectedTab,
+                    onTabSelected = { newTab ->
+                        if (newTab == GalleryTab.MENU) {
+                            isMenuSheetOpen = !isMenuSheetOpen
+                        } else {
+                            isMenuSheetOpen = false
+                            selectedTab = newTab
+                        }
+                    },
+                    backdrop = backdropLayer,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            } else {
+                // Selection Floating Pill Bottom Bar (Bagikan, Hapus, Favorit, Lainnya)
+                SelectionBottomNavBar(
+                    visible = isSelectionMode,
+                    selectedCount = selectedItemIds.size,
+                    onShare = {
+                        val selectedItems = flattenedMediaList.filter { it.id in selectedItemIds }
+                        if (selectedItems.isNotEmpty()) {
+                            val uris = ArrayList(selectedItems.map { it.uri })
+                            val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = "image/*"
+                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(shareIntent, "Bagikan ${selectedItems.size} foto"))
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Gagal membagikan foto", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onDelete = {
+                        Toast.makeText(context, "Pindahkan ${selectedItemIds.size} item ke Sampah", Toast.LENGTH_SHORT).show()
+                        isSelectionMode = false
+                        selectedItemIds = emptySet()
+                    },
+                    onFavorite = {
+                        Toast.makeText(context, "${selectedItemIds.size} item ditambahkan ke Favorit", Toast.LENGTH_SHORT).show()
+                    },
+                    onMore = {
+                        isSelectionMoreSheetOpen = true
+                    },
+                    backdrop = backdropLayer,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
+
+            // Floating Liquid Glass Sheet for More Options (Dual-Card Text-Only Design)
+            SelectionMoreGlassSheet(
+                visible = isSelectionMoreSheetOpen,
+                onDismiss = { isSelectionMoreSheetOpen = false },
+                selectedCount = selectedItemIds.size,
                 backdrop = backdropLayer,
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier.align(Alignment.BottomCenter),
+                onActionSelected = { actionTitle ->
+                    when (actionTitle) {
+                        "Salin ke clipboard" -> {
+                            val firstItem = flattenedMediaList.firstOrNull { it.id in selectedItemIds }
+                            if (firstItem != null) {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                val clip = android.content.ClipData.newUri(context.contentResolver, "URI", firstItem.uri)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Disalin ke clipboard", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        "Atur sebagai wallpaper" -> {
+                            val firstItem = flattenedMediaList.firstOrNull { it.id in selectedItemIds }
+                            if (firstItem != null) {
+                                val wallpaperIntent = Intent(Intent.ACTION_ATTACH_DATA).apply {
+                                    setDataAndType(firstItem.uri, firstItem.mimeType)
+                                    putExtra("mimeType", firstItem.mimeType)
+                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(wallpaperIntent, "Atur sebagai"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal membuka pengatur wallpaper", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        else -> {
+                            Toast.makeText(context, "$actionTitle untuk ${selectedItemIds.size} item", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             )
         }
 

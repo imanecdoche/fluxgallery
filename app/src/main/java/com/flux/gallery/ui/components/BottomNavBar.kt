@@ -72,13 +72,12 @@ fun FloatingGlassBottomNavBar(
                     painter = painterResource(id = iconRes),
                     contentDescription = tab.title,
                     tint = itemColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(23.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = tab.title,
                     color = itemColor,
-                    fontSize = 10.5.sp,
+                    fontSize = 10.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }

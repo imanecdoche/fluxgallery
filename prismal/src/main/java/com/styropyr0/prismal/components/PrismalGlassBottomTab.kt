@@ -44,7 +44,7 @@ fun RowScope.PrismalGlassBottomTab(
                 scaleX = s
                 scaleY = s
             },
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content
     )

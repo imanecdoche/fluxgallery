@@ -3,9 +3,19 @@ package com.flux.gallery.ui.screens
 import android.content.Context
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +46,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -50,17 +65,26 @@ import coil.request.ImageRequest
 import com.flux.gallery.R
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
+import com.flux.gallery.ui.components.SelectionTopHeader
 import com.flux.gallery.ui.theme.FluxTheme
 import io.github.alexzhirkevich.cupertino.CupertinoActivityIndicator
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.hypot
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecentScreen(
     groups: List<MediaDateGroup>,
     isLoading: Boolean,
+    isSelectionMode: Boolean = false,
+    selectedItemIds: Set<Long> = emptySet(),
     onMediaClick: (MediaItem) -> Unit,
+    onEnterSelectionMode: (MediaItem) -> Unit = {},
+    onToggleSelection: (MediaItem) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onExitSelectionMode: () -> Unit = {},
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -124,21 +148,39 @@ fun RecentScreen(
                 }
             }
     ) {
-        // Top Action Bar with 3-dot Menu
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onMenuClick) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_more_vert),
-                    contentDescription = "Opsi lainnya",
-                    tint = FluxTheme.colors.headerText,
-                    modifier = Modifier.size(24.dp)
-                )
+        if (isSelectionMode) {
+            val allMediaIds = remember(groups) { groups.flatMap { it.items }.map { it.id }.toSet() }
+            val isAllSelected = allMediaIds.isNotEmpty() && selectedItemIds.size == allMediaIds.size
+            SelectionTopHeader(
+                visible = true,
+                selectedCount = selectedItemIds.size,
+                isAllSelected = isAllSelected,
+                onSelectAllToggle = {
+                    if (isAllSelected) {
+                        onClearSelection()
+                    } else {
+                        onSelectAll()
+                    }
+                },
+                onCancel = onExitSelectionMode
+            )
+        } else {
+            // Top Action Bar with 3-dot Menu
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onMenuClick) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_more_vert),
+                        contentDescription = "Opsi lainnya",
+                        tint = FluxTheme.colors.headerText,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
@@ -178,7 +220,11 @@ fun RecentScreen(
                         group = group,
                         columns = columnCount,
                         spacing = spacing,
-                        onMediaClick = onMediaClick
+                        isSelectionMode = isSelectionMode,
+                        selectedItemIds = selectedItemIds,
+                        onMediaClick = onMediaClick,
+                        onEnterSelectionMode = onEnterSelectionMode,
+                        onToggleSelection = onToggleSelection
                     )
                 }
 
@@ -190,12 +236,17 @@ fun RecentScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MediaGroupSection(
     group: MediaDateGroup,
     columns: Int,
     spacing: Dp,
+    isSelectionMode: Boolean,
+    selectedItemIds: Set<Long>,
     onMediaClick: (MediaItem) -> Unit,
+    onEnterSelectionMode: (MediaItem) -> Unit,
+    onToggleSelection: (MediaItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -245,11 +296,31 @@ private fun MediaGroupSection(
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     rowItems.forEach { item ->
+                        val itemHaptic = LocalHapticFeedback.current
+                        val isSelected = selectedItemIds.contains(item.id)
+
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)
-                                .clickable { onMediaClick(item) }
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            itemHaptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onToggleSelection(item)
+                                        } else {
+                                            onMediaClick(item)
+                                        }
+                                    },
+                                    onLongClick = {
+                                        itemHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (!isSelectionMode) {
+                                            onEnterSelectionMode(item)
+                                        } else {
+                                            onToggleSelection(item)
+                                        }
+                                    }
+                                )
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -260,6 +331,49 @@ private fun MediaGroupSection(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            // Animated Top-Right Selection Checkmark Badge
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isSelectionMode,
+                                enter = scaleIn(spring(dampingRatio = 0.8f, stiffness = 420f)) + fadeIn(),
+                                exit = scaleOut() + fadeOut(),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(6.dp)
+                            ) {
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(FluxTheme.colors.activeTeal, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Canvas(modifier = Modifier.size(24.dp)) {
+                                            val path = Path().apply {
+                                                moveTo(size.width * 0.29f, size.height * 0.54f)
+                                                lineTo(size.width * 0.44f, size.height * 0.70f)
+                                                lineTo(size.width * 0.71f, size.height * 0.32f)
+                                            }
+                                            drawPath(
+                                                path = path,
+                                                color = Color.White,
+                                                style = Stroke(
+                                                    width = 2.4.dp.toPx(),
+                                                    cap = StrokeCap.Round,
+                                                    join = StrokeJoin.Round
+                                                )
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(Color.Black.copy(alpha = 0.25f), CircleShape)
+                                            .border(1.8.dp, Color.White, CircleShape)
+                                    )
+                                }
+                            }
 
                             // Video duration overlay at bottom right
                             if (item.isVideo) {
