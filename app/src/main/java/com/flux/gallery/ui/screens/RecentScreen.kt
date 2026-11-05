@@ -3,6 +3,7 @@ package com.flux.gallery.ui.screens
 import android.content.Context
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -50,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -93,6 +95,7 @@ fun RecentScreen(
     onClearSelection: () -> Unit = {},
     onExitSelectionMode: () -> Unit = {},
     onMenuClick: () -> Unit,
+    isBlurThumbnails: Boolean = false,
     backdrop: PrismalBackdrop,
     modifier: Modifier = Modifier
 ) {
@@ -202,6 +205,7 @@ fun RecentScreen(
                         spacing = spacing,
                         isSelectionMode = isSelectionMode,
                         selectedItemIds = selectedItemIds,
+                        isBlurThumbnails = isBlurThumbnails,
                         onMediaClick = onMediaClick,
                         onEnterSelectionMode = onEnterSelectionMode,
                         onToggleSelection = onToggleSelection
@@ -220,6 +224,7 @@ private fun MediaGroupSection(
     spacing: Dp,
     isSelectionMode: Boolean,
     selectedItemIds: Set<Long>,
+    isBlurThumbnails: Boolean = false,
     onMediaClick: (MediaItem) -> Unit,
     onEnterSelectionMode: (MediaItem) -> Unit,
     onToggleSelection: (MediaItem) -> Unit,
@@ -261,6 +266,12 @@ private fun MediaGroupSection(
         val chunkedItems = remember(group.items, columns) {
             group.items.chunked(columns)
         }
+
+        val blurRadiusAnim by animateDpAsState(
+            targetValue = if (isBlurThumbnails) 24.dp else 0.dp,
+            animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+            label = "ThumbnailBlurAnim"
+        )
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -305,7 +316,12 @@ private fun MediaGroupSection(
                                     .build(),
                                 contentDescription = item.displayName,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (blurRadiusAnim > 0.dp) Modifier.blur(blurRadiusAnim)
+                                        else Modifier
+                                    )
                             )
 
                             // Animated Top-Right Selection Checkmark Badge

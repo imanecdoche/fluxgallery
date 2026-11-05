@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flux.gallery.R
 import com.flux.gallery.ui.theme.FluxTheme
+import com.styropyr0.prismal.components.PrismalGlassToggle
 import com.styropyr0.prismal.PrismalBackdrop
 import com.styropyr0.prismal.drawPrismalGlass
 import com.styropyr0.prismal.effects.applyPrismalGlassEffects
@@ -62,6 +63,8 @@ fun RecentTopHeader(
     onEnterSelectionMode: () -> Unit,
     onCreateClick: () -> Unit = {},
     onStartSlideshow: () -> Unit = {},
+    isBlurThumbnails: Boolean = false,
+    onBlurThumbnailsChange: (Boolean) -> Unit = {},
     backdrop: PrismalBackdrop,
     modifier: Modifier = Modifier
 ) {
@@ -77,7 +80,7 @@ fun RecentTopHeader(
 
     // Morphing Dimension Animations for 3-Dot Circle -> Contextual Menu Popover Card
     val menuWidth by animateDpAsState(
-        targetValue = if (isMenuOpen) 190.dp else 40.dp,
+        targetValue = if (isMenuOpen) 220.dp else 40.dp,
         animationSpec = spring(
             dampingRatio = if (isMenuOpen) 0.62f else 0.72f,
             stiffness = 380f
@@ -85,7 +88,7 @@ fun RecentTopHeader(
         label = "HeaderMenuWidth"
     )
     val menuHeight by animateDpAsState(
-        targetValue = if (isMenuOpen) 144.dp else 40.dp,
+        targetValue = if (isMenuOpen) 192.dp else 40.dp,
         animationSpec = spring(
             dampingRatio = if (isMenuOpen) 0.62f else 0.72f,
             stiffness = 380f
@@ -292,7 +295,7 @@ fun RecentTopHeader(
                 } else {
                     Column(
                         modifier = Modifier
-                            .width(190.dp)
+                            .width(220.dp)
                             .padding(vertical = 4.dp),
                         verticalArrangement = Arrangement.SpaceEvenly
                     ) {
@@ -329,6 +332,32 @@ fun RecentTopHeader(
                                 onStartSlideshow()
                             }
                         )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.6.dp)
+                                .background(dividerColor)
+                        )
+                        // 4. Blur Thumbnail Privacy Toggle Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Blur Thumbnail",
+                                color = FluxTheme.colors.textPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            PrismalGlassToggle(
+                                selected = { isBlurThumbnails },
+                                onSelect = onBlurThumbnailsChange,
+                                backdrop = backdrop
+                            )
+                        }
                     }
                 }
             }

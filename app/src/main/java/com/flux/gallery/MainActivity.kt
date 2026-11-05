@@ -78,6 +78,11 @@ fun MainGalleryScreen() {
     var isSplashVisible by remember { mutableStateOf(true) }
     var viewingMediaIndex by remember { mutableStateOf<Int?>(null) }
 
+    val galleryPrefs = remember { context.getSharedPreferences("gallery_prefs", Context.MODE_PRIVATE) }
+    var isBlurThumbnails by remember {
+        mutableStateOf(galleryPrefs.getBoolean("blur_thumbnails", false))
+    }
+
     val splashStartTime = remember { System.currentTimeMillis() }
 
     val flattenedMediaList = remember(mediaGroups) {
@@ -201,6 +206,7 @@ fun MainGalleryScreen() {
                                 selectedItemIds = emptySet()
                             },
                             onMenuClick = { /* Three-dot options menu */ },
+                            isBlurThumbnails = isBlurThumbnails,
                             backdrop = backdropLayer
                         )
                     }
@@ -243,6 +249,11 @@ fun MainGalleryScreen() {
                     },
                     onStartSlideshow = {
                         Toast.makeText(context, "Mulai Slideshow", Toast.LENGTH_SHORT).show()
+                    },
+                    isBlurThumbnails = isBlurThumbnails,
+                    onBlurThumbnailsChange = { isBlurred ->
+                        isBlurThumbnails = isBlurred
+                        galleryPrefs.edit().putBoolean("blur_thumbnails", isBlurred).apply()
                     },
                     backdrop = backdropLayer,
                     modifier = Modifier
