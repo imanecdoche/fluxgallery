@@ -132,7 +132,7 @@ fun SelectionBottomNavBar(
 }
 
 @Composable
-private fun SelectionActionItem(
+internal fun SelectionActionItem(
     title: String,
     iconRes: Int,
     enabled: Boolean,

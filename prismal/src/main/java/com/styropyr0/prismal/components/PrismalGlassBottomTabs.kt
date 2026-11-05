@@ -2,6 +2,7 @@ package com.styropyr0.prismal.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -130,6 +131,8 @@ fun PrismalGlassBottomTabs(
     pressGlow: Float = 1f,
     dropletContentScaleY: Float = 0.90f,
     renderWithLowOverhead: Boolean = true,
+    showDroplet: Boolean = true,
+    enableTabGestures: Boolean = true,
     containerColor: Color? = null,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -255,6 +258,17 @@ fun PrismalGlassBottomTabs(
                 .fillMaxWidth()
         )
 
+        val dropletAlpha by animateFloatAsState(
+            targetValue = if (showDroplet) 1f else 0f,
+            animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
+            label = "DropletAlpha"
+        )
+        val dropletScaleTarget by animateFloatAsState(
+            targetValue = if (showDroplet) 1f else 0f,
+            animationSpec = spring(dampingRatio = 0.68f, stiffness = 420f),
+            label = "DropletScale"
+        )
+
         // 2. Sliding Liquid Glass Droplet Indicator (Pure refraction over backdrop, zero duplicate tabs)
         Box(
             Modifier
@@ -263,6 +277,9 @@ fun PrismalGlassBottomTabs(
                     val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
                             else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
                     translationX = if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()
+                    alpha = dropletAlpha
+                    scaleX = dropletScaleTarget
+                    scaleY = dropletScaleTarget
                 }
                 .height(56.dp)
                 .fillMaxWidth(1f / tabsCount)
@@ -327,60 +344,62 @@ fun PrismalGlassBottomTabs(
         }
 
         // 4. Interactive Touch & Drag Surface (Covers entire navbar: fluid 1:1 drag tracking + magnetic snap)
-        var currentDragValue by remember { mutableFloatStateOf(0f) }
-        var lastHighlighted by remember { mutableIntStateOf(-1) }
+        if (enableTabGestures) {
+            var currentDragValue by remember { mutableFloatStateOf(0f) }
+            var lastHighlighted by remember { mutableIntStateOf(-1) }
 
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .pointerInput(tabWidth, tabsCount, isLtr) {
-                    val padStartPx = with(density) { 4.dp.toPx() }
-                    detectTapGestures { offset ->
-                        val relativeX = offset.x - padStartPx
-                        val rawIndex = (relativeX / tabWidth).toInt()
-                        val tappedIndex = (if (isLtr) rawIndex else (tabsCount - 1 - rawIndex)).coerceIn(0, tabsCount - 1)
-                        dragHighlightIndex = null
-                        dampedDragAnimation.animateToValue(tappedIndex.toFloat())
-                        onTabSelected(tappedIndex)
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }
-                }
-                .pointerInput(tabWidth, tabsCount, isLtr) {
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            currentDragValue = dampedDragAnimation.value
-                            dampedDragAnimation.press()
-                        },
-                        onDragEnd = {
-                            val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .pointerInput(tabWidth, tabsCount, isLtr) {
+                        val padStartPx = with(density) { 4.dp.toPx() }
+                        detectTapGestures { offset ->
+                            val relativeX = offset.x - padStartPx
+                            val rawIndex = (relativeX / tabWidth).toInt()
+                            val tappedIndex = (if (isLtr) rawIndex else (tabsCount - 1 - rawIndex)).coerceIn(0, tabsCount - 1)
                             dragHighlightIndex = null
-                            dampedDragAnimation.animateToValue(finalIndex.toFloat())
-                            onTabSelected(finalIndex)
-                            dampedDragAnimation.release()
+                            dampedDragAnimation.animateToValue(tappedIndex.toFloat())
+                            onTabSelected(tappedIndex)
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                        onDragCancel = {
-                            val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
-                            dragHighlightIndex = null
-                            dampedDragAnimation.animateToValue(finalIndex.toFloat())
-                            dampedDragAnimation.release()
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            currentDragValue = (currentDragValue + dragAmount / tabWidth * (if (isLtr) 1f else -1f))
-                                .fastCoerceIn(0f, (tabsCount - 1).toFloat())
-                            dampedDragAnimation.snapToValue(currentDragValue)
-                            val currentHighlighted = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
-                            if (currentHighlighted != lastHighlighted) {
-                                lastHighlighted = currentHighlighted
-                                dragHighlightIndex = currentHighlighted
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            }
                         }
-                    )
-                }
-        )
+                    }
+                    .pointerInput(tabWidth, tabsCount, isLtr) {
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                currentDragValue = dampedDragAnimation.value
+                                dampedDragAnimation.press()
+                            },
+                            onDragEnd = {
+                                val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                                dragHighlightIndex = null
+                                dampedDragAnimation.animateToValue(finalIndex.toFloat())
+                                onTabSelected(finalIndex)
+                                dampedDragAnimation.release()
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            },
+                            onDragCancel = {
+                                val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                                dragHighlightIndex = null
+                                dampedDragAnimation.animateToValue(finalIndex.toFloat())
+                                dampedDragAnimation.release()
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                currentDragValue = (currentDragValue + dragAmount / tabWidth * (if (isLtr) 1f else -1f))
+                                    .fastCoerceIn(0f, (tabsCount - 1).toFloat())
+                                dampedDragAnimation.snapToValue(currentDragValue)
+                                val currentHighlighted = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                                if (currentHighlighted != lastHighlighted) {
+                                    lastHighlighted = currentHighlighted
+                                    dragHighlightIndex = currentHighlighted
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            }
+                        )
+                    }
+            )
+        }
     }
 }
 

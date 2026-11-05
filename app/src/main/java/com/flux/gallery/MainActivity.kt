@@ -224,57 +224,49 @@ fun MainGalleryScreen() {
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
-            // Floating Pill Liquid Glass Navbar (iOS Refractive Glass Style via Prismal AGSL)
-            if (!isSelectionMode) {
-                FloatingGlassBottomNavBar(
-                    selectedTab = if (isMenuSheetOpen) GalleryTab.MENU else selectedTab,
-                    onTabSelected = { newTab ->
-                        if (newTab == GalleryTab.MENU) {
-                            isMenuSheetOpen = !isMenuSheetOpen
-                        } else {
-                            isMenuSheetOpen = false
-                            selectedTab = newTab
+            // Floating Pill Liquid Glass Navbar with Seamless Morphing Single-Pill Pop Transition
+            FloatingGlassBottomNavBar(
+                selectedTab = if (isMenuSheetOpen) GalleryTab.MENU else selectedTab,
+                onTabSelected = { newTab ->
+                    if (newTab == GalleryTab.MENU) {
+                        isMenuSheetOpen = !isMenuSheetOpen
+                    } else {
+                        isMenuSheetOpen = false
+                        selectedTab = newTab
+                    }
+                },
+                isSelectionMode = isSelectionMode,
+                selectedCount = selectedItemIds.size,
+                onShare = {
+                    val selectedItems = flattenedMediaList.filter { it.id in selectedItemIds }
+                    if (selectedItems.isNotEmpty()) {
+                        val uris = ArrayList(selectedItems.map { it.uri })
+                        val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                            type = "image/*"
+                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                         }
-                    },
-                    backdrop = backdropLayer,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            } else {
-                // Selection Floating Pill Bottom Bar (Bagikan, Hapus, Favorit, Lainnya)
-                SelectionBottomNavBar(
-                    visible = isSelectionMode,
-                    selectedCount = selectedItemIds.size,
-                    onShare = {
-                        val selectedItems = flattenedMediaList.filter { it.id in selectedItemIds }
-                        if (selectedItems.isNotEmpty()) {
-                            val uris = ArrayList(selectedItems.map { it.uri })
-                            val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                                type = "image/*"
-                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            }
-                            try {
-                                context.startActivity(Intent.createChooser(shareIntent, "Bagikan ${selectedItems.size} foto"))
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Gagal membagikan foto", Toast.LENGTH_SHORT).show()
-                            }
+                        try {
+                            context.startActivity(Intent.createChooser(shareIntent, "Bagikan ${selectedItems.size} foto"))
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Gagal membagikan foto", Toast.LENGTH_SHORT).show()
                         }
-                    },
-                    onDelete = {
-                        Toast.makeText(context, "Pindahkan ${selectedItemIds.size} item ke Sampah", Toast.LENGTH_SHORT).show()
-                        isSelectionMode = false
-                        selectedItemIds = emptySet()
-                    },
-                    onFavorite = {
-                        Toast.makeText(context, "${selectedItemIds.size} item ditambahkan ke Favorit", Toast.LENGTH_SHORT).show()
-                    },
-                    onMore = {
-                        isSelectionMoreSheetOpen = true
-                    },
-                    backdrop = backdropLayer,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
+                    }
+                },
+                onDelete = {
+                    Toast.makeText(context, "Pindahkan ${selectedItemIds.size} item ke Sampah", Toast.LENGTH_SHORT).show()
+                    isSelectionMode = false
+                    selectedItemIds = emptySet()
+                },
+                onFavorite = {
+                    Toast.makeText(context, "${selectedItemIds.size} item ditambahkan ke Favorit", Toast.LENGTH_SHORT).show()
+                },
+                onMore = {
+                    isSelectionMoreSheetOpen = true
+                },
+                backdrop = backdropLayer,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
 
             // Floating Liquid Glass Sheet for More Options (Dual-Card Text-Only Design)
             SelectionMoreGlassSheet(
