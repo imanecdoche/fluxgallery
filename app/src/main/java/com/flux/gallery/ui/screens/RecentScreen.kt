@@ -3,7 +3,6 @@ package com.flux.gallery.ui.screens
 import android.content.Context
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,8 +10,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -42,7 +39,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -80,15 +76,7 @@ fun RecentScreen(
         mutableIntStateOf(prefs.getInt("grid_columns", 3).coerceIn(2, 5))
     }
 
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
     val spacing = 1.5.dp
-    val targetItemWidth = (screenWidth - spacing * (columnCount - 1)) / columnCount
-    val animatedItemWidth by animateDpAsState(
-        targetValue = targetItemWidth,
-        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-        label = "gridItemWidthAnim"
-    )
 
     Column(
         modifier = modifier
@@ -192,7 +180,6 @@ fun RecentScreen(
                     MediaGroupSection(
                         group = group,
                         columns = columnCount,
-                        itemWidth = animatedItemWidth,
                         spacing = spacing,
                         onMediaClick = onMediaClick
                     )
@@ -206,12 +193,10 @@ fun RecentScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MediaGroupSection(
     group: MediaDateGroup,
     columns: Int,
-    itemWidth: Dp,
     spacing: Dp,
     onMediaClick: (MediaItem) -> Unit,
     modifier: Modifier = Modifier
@@ -224,7 +209,7 @@ private fun MediaGroupSection(
             )
             .padding(bottom = 16.dp)
     ) {
-        // Section Date Header (Matching One UI Samsung Screenshot)
+        // Section Date Header (With 16dp horizontal breathing room)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -248,53 +233,73 @@ private fun MediaGroupSection(
             }
         }
 
-        // Discrete Adaptive Grid for Photos
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing),
-            verticalArrangement = Arrangement.spacedBy(spacing),
-            maxItemsInEachRow = columns
-        ) {
-            group.items.forEach { item ->
-                Box(
-                    modifier = Modifier
-                        .width(itemWidth)
-                        .aspectRatio(1f)
-                        .clickable { onMediaClick(item) }
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(item.uri)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = item.displayName,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+        // 100% Full Edge-to-Edge Grid (0px outer margin, exact equal weight per column)
+        val chunkedItems = remember(group.items, columns) {
+            group.items.chunked(columns)
+        }
 
-                    // Video duration overlay at bottom right
-                    if (item.isVideo) {
-                        Row(
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing)
+        ) {
+            chunkedItems.forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing)
+                ) {
+                    rowItems.forEach { item ->
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(Color.Black.copy(alpha = 0.55f))
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clickable { onMediaClick(item) }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(12.dp)
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(item.uri)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = item.displayName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = formatDuration(item.durationMs),
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+
+                            // Video duration overlay at bottom right
+                            if (item.isVideo) {
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .background(Color.Black.copy(alpha = 0.55f))
+                                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(2.dp))
+                                    Text(
+                                        text = formatDuration(item.durationMs),
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
+                    }
+
+                    // Incomplete last row: fill remaining slots with empty weighted Spacers
+                    // so the existing items lock their exact column width without expanding
+                    val emptySlots = columns - rowItems.size
+                    repeat(emptySlots) {
+                        Spacer(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                        )
                     }
                 }
             }
