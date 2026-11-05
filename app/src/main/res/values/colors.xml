@@ -1,0 +1,10 @@
+<resources>
+    <color name="oneui_teal_dark">#0B3B46</color>
+    <color name="oneui_teal_active">#0B5C68</color>
+    <color name="oneui_inactive">#7B8C95</color>
+    <color name="oneui_bg_canvas">#F8FAFB</color>
+    <color name="oneui_surface">#FFFFFF</color>
+    <color name="oneui_text_primary">#1A2024</color>
+    <color name="oneui_text_secondary">#7B8C95</color>
+    <color name="oneui_divider">#E8ECEE</color>
+</resources>

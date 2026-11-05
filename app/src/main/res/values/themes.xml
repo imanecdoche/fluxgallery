@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.FluxGallery" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/oneui_bg_canvas</item>
+        <item name="android:navigationBarColor">@color/oneui_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@color/oneui_bg_canvas</item>
+    </style>
+</resources>
