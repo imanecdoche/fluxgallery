@@ -35,9 +35,11 @@ import com.flux.gallery.ui.components.BottomNavBar
 import com.flux.gallery.ui.components.GalleryTab
 import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
+import com.flux.gallery.ui.screens.SplashScreenOverlay
 import com.flux.gallery.ui.theme.FluxGalleryTheme
 import com.flux.gallery.ui.theme.OneUiBackground
 import com.flux.gallery.ui.theme.OneUiTextSecondary
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -61,7 +63,10 @@ fun MainGalleryScreen() {
     var selectedTab by remember { mutableStateOf(GalleryTab.GAMBAR) }
     var mediaGroups by remember { mutableStateOf<List<MediaDateGroup>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isSplashVisible by remember { mutableStateOf(true) }
     var viewingMediaIndex by remember { mutableStateOf<Int?>(null) }
+
+    val splashStartTime = remember { System.currentTimeMillis() }
 
     val flattenedMediaList = remember(mediaGroups) {
         mediaGroups.flatMap { it.items }
@@ -72,6 +77,15 @@ fun MainGalleryScreen() {
             isLoading = true
             mediaGroups = repository.loadRecentMedia()
             isLoading = false
+        }
+    }
+
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            val elapsed = System.currentTimeMillis() - splashStartTime
+            val remaining = (1200L - elapsed).coerceAtLeast(0L)
+            delay(remaining)
+            isSplashVisible = false
         }
     }
 
@@ -112,57 +126,61 @@ fun MainGalleryScreen() {
         }
     }
 
-    // Handle back button when viewing fullscreen media
-    if (viewingMediaIndex != null) {
-        BackHandler {
-            viewingMediaIndex = null
-        }
-        PhotoViewerScreen(
-            mediaList = flattenedMediaList,
-            initialIndex = viewingMediaIndex ?: 0,
-            onBack = { viewingMediaIndex = null }
-        )
-    } else {
-        Scaffold(
-            bottomBar = {
-                BottomNavBar(
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it }
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (viewingMediaIndex != null) {
+            BackHandler {
+                viewingMediaIndex = null
             }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(OneUiBackground)
-            ) {
-                when (selectedTab) {
-                    GalleryTab.GAMBAR -> {
-                        RecentScreen(
-                            groups = mediaGroups,
-                            isLoading = isLoading,
-                            onMediaClick = { clickedItem ->
-                                val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
-                                if (index != -1) {
-                                    viewingMediaIndex = index
-                                }
-                            },
-                            onMenuClick = { /* Three-dot options menu */ }
-                        )
-                    }
-                    GalleryTab.ALBUM -> {
-                        PlaceholderTabContent(title = "Album")
-                    }
-                    GalleryTab.CARI -> {
-                        PlaceholderTabContent(title = "Cari")
-                    }
-                    GalleryTab.MENU -> {
-                        PlaceholderTabContent(title = "Menu")
+            PhotoViewerScreen(
+                mediaList = flattenedMediaList,
+                initialIndex = viewingMediaIndex ?: 0,
+                onBack = { viewingMediaIndex = null }
+            )
+        } else {
+            Scaffold(
+                bottomBar = {
+                    BottomNavBar(
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it }
+                    )
+                }
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(OneUiBackground)
+                ) {
+                    when (selectedTab) {
+                        GalleryTab.GAMBAR -> {
+                            RecentScreen(
+                                groups = mediaGroups,
+                                isLoading = isLoading,
+                                onMediaClick = { clickedItem ->
+                                    val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
+                                    if (index != -1) {
+                                        viewingMediaIndex = index
+                                    }
+                                },
+                                onMenuClick = { /* Three-dot options menu */ }
+                            )
+                        }
+                        GalleryTab.ALBUM -> {
+                            PlaceholderTabContent(title = "Album")
+                        }
+                        GalleryTab.CARI -> {
+                            PlaceholderTabContent(title = "Cari")
+                        }
+                        GalleryTab.MENU -> {
+                            PlaceholderTabContent(title = "Menu")
+                        }
                     }
                 }
             }
         }
+
+        // Custom Splash Screen Overlay (Deep Blue + Pure White Flower Glyph)
+        SplashScreenOverlay(isVisible = isSplashVisible)
     }
 }
 
