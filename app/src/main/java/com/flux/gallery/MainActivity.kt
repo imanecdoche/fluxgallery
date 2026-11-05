@@ -188,6 +188,9 @@ fun MainGalleryScreen() {
                                 isSelectionMode = true
                                 selectedItemIds = setOf(item.id)
                             },
+                            onUpdateSelectionRange = { rangeIds ->
+                                selectedItemIds = rangeIds
+                            },
                             onToggleSelection = { item ->
                                 selectedItemIds = if (selectedItemIds.contains(item.id)) {
                                     selectedItemIds - item.id

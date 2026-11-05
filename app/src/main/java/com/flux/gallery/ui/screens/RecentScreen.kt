@@ -18,6 +18,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +101,7 @@ fun RecentScreen(
     selectedItemIds: Set<Long> = emptySet(),
     onMediaClick: (MediaItem) -> Unit,
     onEnterSelectionMode: (MediaItem) -> Unit = {},
+    onUpdateSelectionRange: (Set<Long>) -> Unit = {},
     onToggleSelection: (MediaItem) -> Unit = {},
     onSelectAll: () -> Unit = {},
     onClearSelection: () -> Unit = {},
@@ -120,12 +132,102 @@ fun RecentScreen(
 
     val spacing = 1.5.dp
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val lazyListState = rememberLazyListState()
+    val allItems = remember(groups) { groups.flatMap { it.items } }
+    val itemBounds = remember { mutableMapOf<Long, Rect>() }
+
+    var isDragSelecting by remember { mutableStateOf(false) }
+    var dragStartIndex by remember { mutableIntStateOf(-1) }
+    var currentDragIndex by remember { mutableIntStateOf(-1) }
+    var autoScrollSpeed by remember { mutableFloatStateOf(0f) }
+
+    // Continuous 60FPS dynamic auto-scroll loop during drag selection
+    LaunchedEffect(isDragSelecting, autoScrollSpeed) {
+        if (isDragSelecting && autoScrollSpeed != 0f) {
+            while (isDragSelecting && autoScrollSpeed != 0f) {
+                lazyListState.scrollBy(autoScrollSpeed)
+                delay(16)
+            }
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(FluxTheme.colors.background)
-            // Discrete Pinch-to-Zoom Gesture Detector with Immediate Scroll Interception
+            // Tap & Hold Drag-to-Select Gesture Detector (Active in normal mode)
+            .pointerInput(isSelectionMode, allItems.size) {
+                if (!isSelectionMode) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { offset ->
+                            val matchedEntry = itemBounds.entries.firstOrNull { it.value.contains(offset) }
+                            if (matchedEntry != null) {
+                                val item = allItems.firstOrNull { it.id == matchedEntry.key }
+                                if (item != null) {
+                                    val idx = allItems.indexOfFirst { it.id == item.id }
+                                    isDragSelecting = true
+                                    dragStartIndex = idx
+                                    currentDragIndex = idx
+                                    onEnterSelectionMode(item)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            }
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val pos = change.position
+
+                            // 1. Dynamic Auto-Scroll Calculation based on screen boundaries
+                            val topThreshold = statusBarTop.toPx() + 100f
+                            val bottomThreshold = size.height - 180f
+                            if (pos.y < topThreshold) {
+                                val overshoot = (topThreshold - pos.y).coerceAtLeast(0f)
+                                autoScrollSpeed = -((overshoot / 80f).coerceIn(0.2f, 2.5f) * 22f)
+                            } else if (pos.y > bottomThreshold) {
+                                val overshoot = (pos.y - bottomThreshold).coerceAtLeast(0f)
+                                autoScrollSpeed = ((overshoot / 80f).coerceIn(0.2f, 2.5f) * 22f)
+                            } else {
+                                autoScrollSpeed = 0f
+                            }
+
+                            // 2. Continuous Range Selection Update
+                            val targetEntry = itemBounds.entries.firstOrNull { it.value.contains(pos) }
+                                ?: itemBounds.entries.minByOrNull { entry ->
+                                    val r = entry.value
+                                    val dx = (pos.x - r.center.x).coerceAtLeast(0f)
+                                    val dy = (pos.y - r.center.y).coerceAtLeast(0f)
+                                    dx * dx + dy * dy
+                                }
+
+                            if (targetEntry != null && dragStartIndex != -1) {
+                                val targetIdx = allItems.indexOfFirst { it.id == targetEntry.key }
+                                if (targetIdx != -1 && targetIdx != currentDragIndex) {
+                                    currentDragIndex = targetIdx
+                                    val minIdx = minOf(dragStartIndex, targetIdx)
+                                    val maxIdx = maxOf(dragStartIndex, targetIdx)
+                                    val newRange = allItems.subList(minIdx, maxIdx + 1).map { it.id }.toSet()
+                                    if (newRange != selectedItemIds) {
+                                        onUpdateSelectionRange(newRange)
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            isDragSelecting = false
+                            autoScrollSpeed = 0f
+                            dragStartIndex = -1
+                            currentDragIndex = -1
+                        },
+                        onDragCancel = {
+                            isDragSelecting = false
+                            autoScrollSpeed = 0f
+                            dragStartIndex = -1
+                            currentDragIndex = -1
+                        }
+                    )
+                }
+            }
             .pointerInput(columnCount) {
                 awaitEachGesture {
                     var hasTriggered = false
@@ -204,8 +306,9 @@ fun RecentScreen(
             }
         } else {
             LazyColumn(
+                state = lazyListState,
                 modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = !isPinchZooming,
+                userScrollEnabled = !isPinchZooming && !isDragSelecting,
                 contentPadding = PaddingValues(
                     top = statusBarTop + 54.dp,
                     bottom = 100.dp
@@ -221,7 +324,10 @@ fun RecentScreen(
                         blurRadius = thumbnailBlurRadius,
                         onMediaClick = onMediaClick,
                         onEnterSelectionMode = onEnterSelectionMode,
-                        onToggleSelection = onToggleSelection
+                        onToggleSelection = onToggleSelection,
+                        onPositionItem = { id, rect ->
+                            itemBounds[id] = rect
+                        }
                     )
                 }
             }
@@ -241,6 +347,7 @@ private fun MediaGroupSection(
     onMediaClick: (MediaItem) -> Unit,
     onEnterSelectionMode: (MediaItem) -> Unit,
     onToggleSelection: (MediaItem) -> Unit,
+    onPositionItem: (Long, Rect) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -297,6 +404,11 @@ private fun MediaGroupSection(
                             modifier = Modifier
                                 .weight(1f)
                                 .aspectRatio(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    if (coordinates.isAttached) {
+                                        onPositionItem(item.id, coordinates.boundsInRoot())
+                                    }
+                                }
                                 .combinedClickable(
                                     onClick = {
                                         if (isSelectionMode) {

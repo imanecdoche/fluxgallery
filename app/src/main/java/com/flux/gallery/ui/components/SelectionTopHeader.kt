@@ -220,15 +220,15 @@ fun RecentTopHeader(
         // 2a. 40dp 3-Dot Circle Button (Visible when menu is closed)
         AnimatedVisibility(
             visible = !isSelectionMode && !isMenuOpen,
-            enter = fadeIn(tween(120)) + scaleIn(
-                initialScale = 0.8f,
+            enter = fadeIn(tween(180, delayMillis = 60)) + scaleIn(
+                initialScale = 0.5f,
                 transformOrigin = TransformOrigin(1f, 0f),
-                animationSpec = spring(dampingRatio = 0.72f, stiffness = 400f)
+                animationSpec = spring(dampingRatio = 0.76f, stiffness = 260f)
             ),
             exit = fadeOut(tween(80)) + scaleOut(
-                targetScale = 0.8f,
+                targetScale = 0.5f,
                 transformOrigin = TransformOrigin(1f, 0f),
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 450f)
+                animationSpec = spring(dampingRatio = 0.76f, stiffness = 320f)
             ),
             modifier = Modifier.align(Alignment.TopEnd)
         ) {
@@ -271,12 +271,12 @@ fun RecentTopHeader(
             enter = fadeIn(tween(140)) + scaleIn(
                 initialScale = 0.18f,
                 transformOrigin = TransformOrigin(1f, 0f),
-                animationSpec = spring(dampingRatio = 0.72f, stiffness = 380f)
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 320f)
             ),
-            exit = fadeOut(tween(100)) + scaleOut(
+            exit = fadeOut(tween(180)) + scaleOut(
                 targetScale = 0.18f,
                 transformOrigin = TransformOrigin(1f, 0f),
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 450f)
+                animationSpec = spring(dampingRatio = 0.78f, stiffness = 260f)
             ),
             modifier = Modifier.align(Alignment.TopEnd)
         ) {

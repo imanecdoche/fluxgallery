@@ -133,6 +133,7 @@ fun FluxGalleryTheme(
         CompositionLocalProvider(LocalFluxColors provides fluxColors) {
             MaterialTheme(
                 colorScheme = colorScheme,
+                typography = FluxTypography,
                 content = content
             )
         }
