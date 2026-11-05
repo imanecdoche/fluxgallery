@@ -30,8 +30,8 @@ val AppleDarkTextPrimary = Color(0xFFFFFFFF)
 val AppleDarkTextSecondary = Color(0xFF8E8E93)
 // Separator / Divider: #38383A (Apple HIG dark separator)
 val AppleDarkDivider = Color(0xFF38383A)
-// System Accent Teal: #40C8E0 (Apple HIG dark mode System Teal)
-val AppleDarkTeal = Color(0xFF40C8E0)
+// System Accent Teal: Vibrant Cyan-Teal for maximum contrast on glass
+val AppleDarkTeal = Color(0xFF00C7BE)
 // Inactive Tab / Icon: #8E8E93
 val AppleDarkInactive = Color(0xFF8E8E93)
 

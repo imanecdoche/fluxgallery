@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
@@ -326,15 +327,15 @@ fun PrismalGlassBottomTabs(
                     } else null,
                     onDrawSurface = {
                         drawRect(
-                            if (isLightTheme) Color.White.copy(0.48f)
-                            else Color.White.copy(0.36f)
+                            if (isLightTheme) Color.White.copy(0.36f)
+                            else Color.White.copy(0.18f)
                         )
                     }
                 )
         )
 
         // 3. Tab Items: Dual-Layer Geometric Clip Mask
-        // Layer 1: Inactive Base Row (Inactive color & normal outline icons)
+        // Layer 1: Inactive Base Row (Clipped OUT of droplet bounds using ClipOp.Difference to prevent ghosting)
         CompositionLocalProvider(
             LocalPrismalBottomTabScale provides {
                 lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
@@ -349,7 +350,37 @@ fun PrismalGlassBottomTabs(
                     }
                     .height(64.dp)
                     .fillMaxWidth()
-                    .padding(4.dp),
+                    .padding(4.dp)
+                    .drawWithContent {
+                        if (dropletAlpha > 0f && dropletScaleTarget > 0f) {
+                            val thumbProgress = dampedDragAnimation.value
+                            val cx = if (isLtr) (thumbProgress + 0.5f) * tabWidth
+                                     else size.width - (thumbProgress + 0.5f) * tabWidth
+                            val cy = size.height / 2f
+
+                            val (sx, sy) = if (renderWithLowOverhead) dropletScale(dampedDragAnimation) else 1f to 1f
+                            val w = tabWidth * sx * dropletScaleTarget
+                            val h = 56.dp.toPx() * sy * dropletScaleTarget
+
+                            val stencilPath = Path().apply {
+                                addRoundRect(
+                                    RoundRect(
+                                        left = cx - w / 2f,
+                                        top = cy - h / 2f,
+                                        right = cx + w / 2f,
+                                        bottom = cy + h / 2f,
+                                        radiusX = h / 2f,
+                                        radiusY = h / 2f
+                                    )
+                                )
+                            }
+                            clipPath(stencilPath, clipOp = ClipOp.Difference) {
+                                this@drawWithContent.drawContent()
+                            }
+                        } else {
+                            this@drawWithContent.drawContent()
+                        }
+                    },
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
