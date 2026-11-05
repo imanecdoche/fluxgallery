@@ -13,8 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,7 +29,7 @@ import androidx.core.content.ContextCompat
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.data.repository.MediaRepository
-import com.flux.gallery.ui.components.BottomNavBar
+import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
 import com.flux.gallery.ui.components.GalleryTab
 import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
@@ -39,6 +37,8 @@ import com.flux.gallery.ui.screens.SplashScreenOverlay
 import com.flux.gallery.ui.theme.FluxGalleryTheme
 import com.flux.gallery.ui.theme.OneUiBackground
 import com.flux.gallery.ui.theme.OneUiTextSecondary
+import com.styropyr0.prismal.sources.prismalGlassLayer
+import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -59,6 +59,7 @@ fun MainGalleryScreen() {
     val context = LocalContext.current
     val repository = remember { MediaRepository(context) }
     val coroutineScope = rememberCoroutineScope()
+    val backdropLayer = rememberPrismalGlassLayer()
 
     var selectedTab by remember { mutableStateOf(GalleryTab.GAMBAR) }
     var mediaGroups by remember { mutableStateOf<List<MediaDateGroup>>(emptyList()) }
@@ -137,46 +138,46 @@ fun MainGalleryScreen() {
                 onBack = { viewingMediaIndex = null }
             )
         } else {
-            Scaffold(
-                bottomBar = {
-                    BottomNavBar(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it }
-                    )
-                }
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .background(OneUiBackground)
-                ) {
-                    when (selectedTab) {
-                        GalleryTab.GAMBAR -> {
-                            RecentScreen(
-                                groups = mediaGroups,
-                                isLoading = isLoading,
-                                onMediaClick = { clickedItem ->
-                                    val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
-                                    if (index != -1) {
-                                        viewingMediaIndex = index
-                                    }
-                                },
-                                onMenuClick = { /* Three-dot options menu */ }
-                            )
-                        }
-                        GalleryTab.ALBUM -> {
-                            PlaceholderTabContent(title = "Album")
-                        }
-                        GalleryTab.CARI -> {
-                            PlaceholderTabContent(title = "Cari")
-                        }
-                        GalleryTab.MENU -> {
-                            PlaceholderTabContent(title = "Menu")
-                        }
+            // Live Content Layer that is refracted and sampled by the floating glass pill
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(OneUiBackground)
+                    .prismalGlassLayer(backdropLayer)
+            ) {
+                when (selectedTab) {
+                    GalleryTab.GAMBAR -> {
+                        RecentScreen(
+                            groups = mediaGroups,
+                            isLoading = isLoading,
+                            onMediaClick = { clickedItem ->
+                                val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
+                                if (index != -1) {
+                                    viewingMediaIndex = index
+                                }
+                            },
+                            onMenuClick = { /* Three-dot options menu */ }
+                        )
+                    }
+                    GalleryTab.ALBUM -> {
+                        PlaceholderTabContent(title = "Album")
+                    }
+                    GalleryTab.CARI -> {
+                        PlaceholderTabContent(title = "Cari")
+                    }
+                    GalleryTab.MENU -> {
+                        PlaceholderTabContent(title = "Menu")
                     }
                 }
             }
+
+            // Floating Pill Liquid Glass Navbar (iOS Refractive Glass Style via Prismal AGSL)
+            FloatingGlassBottomNavBar(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it },
+                backdrop = backdropLayer,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
 
         // Custom Splash Screen Overlay (Deep Blue + Pure White Flower Glyph)

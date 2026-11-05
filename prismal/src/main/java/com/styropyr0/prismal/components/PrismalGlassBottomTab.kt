@@ -29,7 +29,7 @@ val LocalPrismalBottomTabHighlightedIndex = staticCompositionLocalOf { { 0 } }
  */
 @Composable
 fun RowScope.PrismalGlassBottomTab(
-    onClick: () -> Unit,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -37,12 +37,6 @@ fun RowScope.PrismalGlassBottomTab(
     Column(
         modifier
             .clip(PrismalCapsule())
-            .clickable(
-                interactionSource = null,
-                indication = null,
-                role = Role.Tab,
-                onClick = onClick
-            )
             .fillMaxHeight()
             .weight(1f)
             .graphicsLayer {

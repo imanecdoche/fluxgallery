@@ -69,8 +69,8 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // Prismal Liquid Glass (AGSL) - To be enabled in next step
-    // implementation(project(":prismal"))
+    // Prismal Liquid Glass (AGSL)
+    implementation(project(":prismal"))
 
     // Testing
     testImplementation(libs.junit)

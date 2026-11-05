@@ -47,7 +47,6 @@ dependencies {
 
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
-        freeCompilerArgs.add("-Xcontext-parameters")
         optIn.add("kotlin.time.ExperimentalTime")
     }
 }

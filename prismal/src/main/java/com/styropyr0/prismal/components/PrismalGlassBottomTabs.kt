@@ -3,6 +3,8 @@ package com.styropyr0.prismal.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,6 +18,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,16 +36,21 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
+import kotlin.math.abs
 import androidx.compose.ui.util.lerp
 import com.styropyr0.prismal.PrismalBackdrop
 import com.styropyr0.prismal.PrismalGlass
@@ -125,14 +133,13 @@ fun PrismalGlassBottomTabs(
     content: @Composable RowScope.() -> Unit
 ) {
     val isLightTheme = !isSystemInDarkTheme()
-    val effectiveDropletTint = dropletContentTint ?: if (isLightTheme) Color(0xFF0088FF) else Color(0xFF0091FF)
     val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
     else Color(0xFF121212).copy(0.4f)
 
-    val tabsBackdrop = rememberPrismalGlassLayer()
-
-    tabsBackdrop.readSamplingState()
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val viewConfig = LocalViewConfiguration.current
+    val touchSlop = viewConfig.touchSlop
 
     BoxWithConstraints(
         modifier,
@@ -154,9 +161,6 @@ fun PrismalGlassBottomTabs(
 
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
         val animationScope = rememberCoroutineScope()
-        var currentIndex by remember(selectedTabIndex) {
-            mutableIntStateOf(selectedTabIndex())
-        }
         var dragHighlightIndex by remember { mutableStateOf<Int?>(null) }
         val highlightedTabIndex = dragHighlightIndex ?: selectedTabIndex()
         val dampedDragAnimation = remember(animationScope, tabsCount, tabWidth, isLtr) {
@@ -173,8 +177,8 @@ fun PrismalGlassBottomTabs(
                 onDragStopped = {
                     val targetIndex = targetValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
                     dragHighlightIndex = targetIndex
-                    currentIndex = targetIndex
                     animateToValue(targetIndex.toFloat())
+                    onTabSelected(targetIndex)
                     animationScope.launch {
                         offsetAnimation.animateTo(
                             0f,
@@ -196,30 +200,12 @@ fun PrismalGlassBottomTabs(
                 }
             )
         }
-        LaunchedEffect(selectedTabIndex) {
-            snapshotFlow { selectedTabIndex() }
-                .collectLatest { index ->
-                    currentIndex = index
-                    dragHighlightIndex = null
-                }
-        }
-        LaunchedEffect(dampedDragAnimation) {
-            snapshotFlow { currentIndex }
-                .drop(1)
-                .collectLatest { index ->
-                    dampedDragAnimation.animateToValue(index.toFloat())
-                    onTabSelected(index)
-                }
-        }
 
-        val shrunkTabsBackdrop = rememberPrismalWrappedSource(tabsBackdrop) { drawTabs ->
-            val progress = dampedDragAnimation.pressProgress
-            scale(1f, lerp(1f, dropletContentScaleY.fastCoerceIn(0f, 1f), progress)) {
-                drawTabs()
-            }
+        val targetIndex = selectedTabIndex()
+        LaunchedEffect(targetIndex) {
+            dragHighlightIndex = null
+            dampedDragAnimation.animateToValue(targetIndex.toFloat())
         }
-        val mergedDropletBackdrop = rememberPrismalMergedSource(backdrop, shrunkTabsBackdrop)
-        val dropletBackdrop = if (PrismalGlass.pipeline == PrismalGlassPipeline.Legacy) shrunkTabsBackdrop else mergedDropletBackdrop
 
         val interactivePrismalSpecular = remember(animationScope, tabWidth, isLtr, pressGlow) {
             PrismalPressRipple(
@@ -235,6 +221,91 @@ fun PrismalGlassBottomTabs(
             )
         }
 
+        // 1. Outer Pill Container (Glass backdrop blur & refraction over photos)
+        Box(
+            Modifier
+                .graphicsLayer {
+                    translationX = panelOffset
+                }
+                .drawPrismalGlass(
+                    backdrop = backdrop,
+                    shape = { PrismalCapsule() },
+                    specular = specular,
+                    effects = {
+                        applyPrismalGlassEffects(
+                            density = density,
+                            adaptiveLuminance = adaptiveLuminance,
+                            luminance = luminance(),
+                            blurRadiusPx = with(density) { blurRadius.toPx() },
+                            refractionHeightPx = with(density) { refractionHeight.toPx() },
+                            refractionAmountPx = with(density) { refractionAmount.toPx() }
+                        )
+                    },
+                    layerBlock = {
+                        val progress = dampedDragAnimation.pressProgress
+                        val scale = lerp(1f, 1f + 16.dp.toPx() / size.width, progress)
+                        scaleX = scale
+                        scaleY = scale
+                    },
+                    onDrawSurface = { drawRect(containerColor) }
+                )
+                .then(interactivePrismalSpecular.modifier)
+                .height(64.dp)
+                .fillMaxWidth()
+        )
+
+        // 2. Sliding Liquid Glass Droplet Indicator (Pure refraction over backdrop, zero duplicate tabs)
+        Box(
+            Modifier
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .graphicsLayer {
+                    val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
+                            else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
+                    translationX = if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()
+                }
+                .height(56.dp)
+                .fillMaxWidth(1f / tabsCount)
+                .drawPrismalGlass(
+                    backdrop = backdrop,
+                    shape = { PrismalCapsule() },
+                    effects = {
+                        val effectScale = if (renderWithLowOverhead) 1f else dampedDragAnimation.scaleY
+                        prismalLens(
+                            refractionHeight = with(density) { dropletRefractionHeight.toPx() } * effectScale,
+                            refractionAmount = with(density) { dropletRefractionAmount.toPx() } * effectScale,
+                            depthEffect = true,
+                            chromaticAberration = dropletChromaticAberration.coerceAtLeast(0f)
+                        )
+                    },
+                    specular = {
+                        PrismalSpecular.Default.copy(alpha = 0.85f)
+                    },
+                    depthShadow = {
+                        PrismalDepthShadow(alpha = 0.30f)
+                    },
+                    depthInset = {
+                        PrismalDepthInset(
+                            radius = 6.dp,
+                            alpha = 0.35f
+                        )
+                    },
+                    layerBlock = if (renderWithLowOverhead) {
+                        {
+                            val (sx, sy) = dropletScale(dampedDragAnimation)
+                            scaleX = sx
+                            scaleY = sy
+                        }
+                    } else null,
+                    onDrawSurface = {
+                        drawRect(
+                            if (isLightTheme) Color.White.copy(0.28f)
+                            else Color.White.copy(0.18f)
+                        )
+                    }
+                )
+        )
+
+        // 3. Tab Items Row (Single clean layer rendered on top: zero ghosting, crisp icons & text)
         CompositionLocalProvider(
             LocalPrismalBottomTabScale provides {
                 lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
@@ -246,165 +317,68 @@ fun PrismalGlassBottomTabs(
                     .graphicsLayer {
                         translationX = panelOffset
                     }
-                    .drawPrismalGlass(
-                        backdrop = backdrop,
-                        shape = { PrismalCapsule() },
-                        specular = specular,
-                        effects = {
-                            applyPrismalGlassEffects(
-                                density = density,
-                                adaptiveLuminance = adaptiveLuminance,
-                                luminance = luminance(),
-                                blurRadiusPx = with(density) { blurRadius.toPx() },
-                                refractionHeightPx = with(density) { refractionHeight.toPx() },
-                                refractionAmountPx = with(density) { refractionAmount.toPx() }
-                            )
-                        },
-                        layerBlock = {
-                            val progress = dampedDragAnimation.pressProgress
-                            val scale = lerp(1f, 1f + 16.dp.toPx() / size.width, progress)
-                            scaleX = scale
-                            scaleY = scale
-                        },
-                        onDrawSurface = { drawRect(containerColor) }
-                    )
-                    .then(interactivePrismalSpecular.modifier)
                     .height(64.dp)
                     .fillMaxWidth()
                     .padding(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
-
-            Row(
-                Modifier
-                    .clearAndSetSemantics {}
-                    .alpha(0f)
-                    .prismalGlassLayer(tabsBackdrop)
-                    .graphicsLayer {
-                        translationX = panelOffset
-                    }
-                    .drawPrismalGlass(
-                        backdrop = backdrop,
-                        shape = { PrismalCapsule() },
-                        effects = {
-                            applyPrismalGlassEffects(
-                                density = density,
-                                adaptiveLuminance = adaptiveLuminance,
-                                luminance = luminance(),
-                                blurRadiusPx = with(density) { (dropletBlurRadius ?: blurRadius).toPx() }.let {
-                                    if (adaptiveLuminance) it.coerceAtLeast(0.01f) else it
-                                },
-                                refractionHeightPx = with(density) { refractionHeight.toPx() },
-                                refractionAmountPx = with(density) { refractionAmount.toPx() }
-                            )
-                        },
-                        specular = {
-                            val progress = dampedDragAnimation.pressProgress
-                            PrismalSpecular.Default.copy(alpha = progress)
-                        },
-                        onDrawSurface = { drawRect(containerColor) }
-                    )
-                    .then(interactivePrismalSpecular.modifier)
-                    .height(56.dp)
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp)
-                    .then(
-                        if (tintDropletContent) {
-                            Modifier.drawWithContent {
-                                val paint = Paint().apply {
-                                    colorFilter = ColorFilter.tint(effectiveDropletTint)
-                                }
-                                drawContext.canvas.saveLayer(
-                                    Rect(0f, 0f, size.width, size.height),
-                                    paint
-                                )
-                                drawContent()
-                                drawContext.canvas.restore()
-                            }
-                        } else {
-                            Modifier
-                        }
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-                content = content
-            )
         }
+
+        // 4. Interactive Touch & Drag Surface (Covers entire navbar: fluid 1:1 drag tracking + magnetic snap)
+        var currentDragValue by remember { mutableFloatStateOf(0f) }
+        var lastHighlighted by remember { mutableIntStateOf(-1) }
 
         Box(
             Modifier
-                .padding(horizontal = 4.dp)
-                .graphicsLayer {
-                    val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
-                    translationX = if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()
+                .fillMaxWidth()
+                .height(64.dp)
+                .pointerInput(tabWidth, tabsCount, isLtr) {
+                    val padStartPx = with(density) { 4.dp.toPx() }
+                    detectTapGestures { offset ->
+                        val relativeX = offset.x - padStartPx
+                        val rawIndex = (relativeX / tabWidth).toInt()
+                        val tappedIndex = (if (isLtr) rawIndex else (tabsCount - 1 - rawIndex)).coerceIn(0, tabsCount - 1)
+                        dragHighlightIndex = null
+                        dampedDragAnimation.animateToValue(tappedIndex.toFloat())
+                        onTabSelected(tappedIndex)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
                 }
-                .then(interactivePrismalSpecular.gestureModifier)
-                .then(dampedDragAnimation.modifier)
-                .height(56.dp)
-                .fillMaxWidth(1f / tabsCount)
-                .then(
-                    if (renderWithLowOverhead) {
-                        Modifier
-                    } else {
-                        Modifier.layout { measurable, constraints ->
-                            val w = constraints.maxWidth
-                            val h = constraints.maxHeight
-                            val (sx, sy) = dropletScale(dampedDragAnimation)
-                            val pw = (w * sx).fastRoundToInt()
-                            val ph = (h * sy).fastRoundToInt()
-                            val placeable = measurable.measure(Constraints.fixed(pw, ph))
-                            layout(w, h) {
-                                placeable.place((w - pw) / 2, (h - ph) / 2)
+                .pointerInput(tabWidth, tabsCount, isLtr) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            currentDragValue = dampedDragAnimation.value
+                            dampedDragAnimation.press()
+                        },
+                        onDragEnd = {
+                            val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                            dragHighlightIndex = null
+                            dampedDragAnimation.animateToValue(finalIndex.toFloat())
+                            onTabSelected(finalIndex)
+                            dampedDragAnimation.release()
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        },
+                        onDragCancel = {
+                            val finalIndex = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                            dragHighlightIndex = null
+                            dampedDragAnimation.animateToValue(finalIndex.toFloat())
+                            dampedDragAnimation.release()
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            currentDragValue = (currentDragValue + dragAmount / tabWidth * (if (isLtr) 1f else -1f))
+                                .fastCoerceIn(0f, (tabsCount - 1).toFloat())
+                            dampedDragAnimation.snapToValue(currentDragValue)
+                            val currentHighlighted = currentDragValue.fastRoundToInt().coerceIn(0, tabsCount - 1)
+                            if (currentHighlighted != lastHighlighted) {
+                                lastHighlighted = currentHighlighted
+                                dragHighlightIndex = currentHighlighted
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             }
                         }
-                    }
-                )
-                .drawPrismalGlass(
-                    backdrop = dropletBackdrop,
-                    shape = { PrismalCapsule() },
-                    effects = {
-                        val progress = dampedDragAnimation.pressProgress
-                        val effectScale = if (renderWithLowOverhead) 1f else dampedDragAnimation.scaleY
-                        prismalLens(
-                            refractionHeight = with(density) { dropletRefractionHeight.toPx() } * effectScale * progress,
-                            refractionAmount = with(density) { dropletRefractionAmount.toPx() } * effectScale * progress,
-                            depthEffect = true,
-                            chromaticAberration = dropletChromaticAberration.coerceAtLeast(0f)
-                        )
-                    },
-                    specular = {
-                        val progress = dampedDragAnimation.pressProgress
-                        PrismalSpecular.Default.copy(alpha = progress)
-                    },
-                    depthShadow = {
-                        val progress = dampedDragAnimation.pressProgress
-                        PrismalDepthShadow(alpha = progress)
-                    },
-                    depthInset = {
-                        val progress = dampedDragAnimation.pressProgress
-                        PrismalDepthInset(
-                            radius = 8.dp * progress * if (renderWithLowOverhead) 1f else dampedDragAnimation.scaleY,
-                            alpha = progress
-                        )
-                    },
-                    layerBlock = if (renderWithLowOverhead) {
-                        {
-                            val (sx, sy) = dropletScale(dampedDragAnimation)
-                            scaleX = sx
-                            scaleY = sy
-                        }
-                    }
-                    else null,
-                    onDrawSurface = {
-                        val progress = dampedDragAnimation.pressProgress
-                        drawRect(
-                            if (isLightTheme) Color.Black.copy(0.1f)
-                            else Color.White.copy(0.1f),
-                            alpha = 1f - progress
-                        )
-                        drawRect(Color.Black.copy(alpha = 0.03f * progress))
-                    }
-                )
+                    )
+                }
         )
     }
 }

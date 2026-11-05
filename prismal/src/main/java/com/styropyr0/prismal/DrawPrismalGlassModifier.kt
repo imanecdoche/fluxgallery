@@ -329,6 +329,7 @@ private class DrawPrismalGlassNode(
 
             if (sampleScale < 1f) {
                 capturePrismalLayer(
+                    this@DrawPrismalGlassNode,
                     layer,
                     size = IntSize(ceil(fullWidth * sampleScale).toInt(), ceil(fullHeight * sampleScale).toInt()),
                     block = {
@@ -342,6 +343,7 @@ private class DrawPrismalGlassNode(
                 layer.topLeft = IntOffset.Zero
             } else {
                 capturePrismalLayer(
+                    this@DrawPrismalGlassNode,
                     layer,
                     size = IntSize(fullWidth, fullHeight),
                     block = recordBackdropBlock
@@ -397,7 +399,7 @@ private class DrawPrismalGlassNode(
         onDrawFront?.invoke(this)
 
         nestedGlassSource?.let { source ->
-            capturePrismalLayer(source.graphicsLayer) {
+            capturePrismalLayer(this@DrawPrismalGlassNode, source.graphicsLayer) {
                 onDrawBehind?.invoke(this)
                 drawPrismalGlassLayer()
                 onDrawSurface?.invoke(this)
