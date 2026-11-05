@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,6 +31,7 @@ import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.data.repository.MediaRepository
 import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
+import com.flux.gallery.ui.components.FloatingGlassMenuSheet
 import com.flux.gallery.ui.components.GalleryTab
 import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
@@ -62,6 +64,7 @@ fun MainGalleryScreen() {
     val backdropLayer = rememberPrismalGlassLayer()
 
     var selectedTab by remember { mutableStateOf(GalleryTab.GAMBAR) }
+    var isMenuSheetOpen by remember { mutableStateOf(false) }
     var mediaGroups by remember { mutableStateOf<List<MediaDateGroup>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isSplashVisible by remember { mutableStateOf(true) }
@@ -127,6 +130,10 @@ fun MainGalleryScreen() {
         }
     }
 
+    BackHandler(enabled = isMenuSheetOpen) {
+        isMenuSheetOpen = false
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (viewingMediaIndex != null) {
             BackHandler {
@@ -171,10 +178,28 @@ fun MainGalleryScreen() {
                 }
             }
 
+            // Floating Glass Menu Hamburger Sheet (One UI Bottom Sheet Hub with Prismal Liquid Glass)
+            FloatingGlassMenuSheet(
+                visible = isMenuSheetOpen,
+                onDismiss = { isMenuSheetOpen = false },
+                backdrop = backdropLayer,
+                onItemClick = { itemTitle ->
+                    Toast.makeText(context, itemTitle, Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+
             // Floating Pill Liquid Glass Navbar (iOS Refractive Glass Style via Prismal AGSL)
             FloatingGlassBottomNavBar(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it },
+                selectedTab = if (isMenuSheetOpen) GalleryTab.MENU else selectedTab,
+                onTabSelected = { newTab ->
+                    if (newTab == GalleryTab.MENU) {
+                        isMenuSheetOpen = !isMenuSheetOpen
+                    } else {
+                        isMenuSheetOpen = false
+                        selectedTab = newTab
+                    }
+                },
                 backdrop = backdropLayer,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
