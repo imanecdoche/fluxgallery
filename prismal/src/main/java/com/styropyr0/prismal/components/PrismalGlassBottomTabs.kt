@@ -31,11 +31,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -351,46 +355,54 @@ fun PrismalGlassBottomTabs(
             )
         }
 
-        // Layer 2: Active Masked Row (Teal color & filled icons) physically clipped to sliding droplet thumb bounds
-        val tabWidthDp = with(density) { tabWidth.toDp() }
-        val totalWidthDp = with(density) { constraints.maxWidth.toDp() }
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-                .graphicsLayer {
-                    val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
-                            else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
-                    translationX = if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat()
-                    alpha = dropletAlpha
-                    scaleX = dropletScaleTarget
-                    scaleY = dropletScaleTarget
-                    clip = true
-                    shape = PrismalCapsule()
-                }
-                .height(56.dp)
-                .fillMaxWidth(1f / tabsCount)
+        // Layer 2: Active Masked Row (Teal color & filled icons)
+        // Stencil clipping matches the moving droplet thumb and scales dynamically when held/dragged
+        CompositionLocalProvider(
+            LocalPrismalBottomTabScale provides {
+                lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
+            },
+            LocalPrismalBottomTabHighlightedIndex provides { highlightedTabIndex },
+            LocalPrismalTabIsActive provides true
         ) {
-            CompositionLocalProvider(
-                LocalPrismalBottomTabScale provides {
-                    lerp(1f, 1.05f, dampedDragAnimation.pressProgress)
-                },
-                LocalPrismalBottomTabHighlightedIndex provides { highlightedTabIndex },
-                LocalPrismalTabIsActive provides true
-            ) {
-                Row(
-                    modifier = Modifier
-                        .height(56.dp)
-                        .requiredWidth(totalWidthDp - 8.dp)
-                        .graphicsLayer {
-                            val x = if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
-                                    else size.width - (dampedDragAnimation.value + 1f) * tabWidth + panelOffset
-                            // Invert thumb translation so content aligns 1:1 with Layer 1 base row
-                            translationX = -(if (renderWithLowOverhead) x else x.fastRoundToInt().toFloat())
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = content
-                )
-            }
+            Row(
+                Modifier
+                    .graphicsLayer {
+                        translationX = panelOffset
+                    }
+                    .height(64.dp)
+                    .fillMaxWidth()
+                    .padding(4.dp)
+                    .drawWithContent {
+                        if (dropletAlpha > 0f && dropletScaleTarget > 0f) {
+                            val thumbProgress = dampedDragAnimation.value
+                            val cx = if (isLtr) (thumbProgress + 0.5f) * tabWidth
+                                     else size.width - (thumbProgress + 0.5f) * tabWidth
+                            val cy = size.height / 2f
+
+                            val (sx, sy) = if (renderWithLowOverhead) dropletScale(dampedDragAnimation) else 1f to 1f
+                            val w = tabWidth * sx * dropletScaleTarget
+                            val h = 56.dp.toPx() * sy * dropletScaleTarget
+
+                            val stencilPath = Path().apply {
+                                addRoundRect(
+                                    RoundRect(
+                                        left = cx - w / 2f,
+                                        top = cy - h / 2f,
+                                        right = cx + w / 2f,
+                                        bottom = cy + h / 2f,
+                                        radiusX = h / 2f,
+                                        radiusY = h / 2f
+                                    )
+                                )
+                            }
+                            clipPath(stencilPath) {
+                                this@drawWithContent.drawContent()
+                            }
+                        }
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
         }
 
         // 4. Interactive Touch & Drag Surface (Covers entire navbar: fluid 1:1 drag tracking + magnetic snap)

@@ -72,8 +72,9 @@ fun PrismalGlassToggle(
 
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val dragWidth = with(density) { 20.dp.toPx() }
+    val touchSlop = with(density) { 6.dp.toPx() }
     val animationScope = rememberCoroutineScope()
-    var didDrag by remember { mutableStateOf(false) }
+    var totalDragDistance by remember { mutableFloatStateOf(0f) }
     var fraction by remember { mutableFloatStateOf(if (selected()) 1f else 0f) }
     val dampedDragAnimation = remember(animationScope) {
         PrismalSpringMotion(
@@ -83,21 +84,22 @@ fun PrismalGlassToggle(
             visibilityThreshold = 0.001f,
             initialScale = 1f,
             pressedScale = 1.5f,
-            onDragStarted = {},
+            onDragStarted = {
+                totalDragDistance = 0f
+            },
             onDragStopped = {
-                if (didDrag) {
-                    fraction = if (targetValue >= 0.5f) 1f else 0f
-                    onSelect(fraction == 1f)
-                    didDrag = false
+                val wasTrueDrag = totalDragDistance > touchSlop
+                val newSelected = if (wasTrueDrag) {
+                    fraction >= 0.5f
                 } else {
-                    fraction = if (selected()) 0f else 1f
-                    onSelect(fraction == 1f)
+                    !selected()
                 }
+                fraction = if (newSelected) 1f else 0f
+                onSelect(newSelected)
+                totalDragDistance = 0f
             },
             onDrag = { _, dragAmount ->
-                if (!didDrag) {
-                    didDrag = dragAmount.x != 0f
-                }
+                totalDragDistance += kotlin.math.abs(dragAmount.x)
                 val delta = dragAmount.x / dragWidth
                 fraction =
                     if (isLtr) (fraction + delta).fastCoerceIn(0f, 1f)
