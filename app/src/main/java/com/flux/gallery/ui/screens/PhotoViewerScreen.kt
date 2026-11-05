@@ -58,6 +58,9 @@ import com.flux.gallery.ui.theme.FluxTheme
 fun PhotoViewerScreen(
     mediaList: List<MediaItem>,
     initialIndex: Int,
+    favoriteIds: Set<Long> = emptySet(),
+    onToggleFavorite: (Long) -> Unit = {},
+    onDeleteRequest: (MediaItem) -> Unit = {},
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -67,12 +70,18 @@ fun PhotoViewerScreen(
         pageCount = { mediaList.size }
     )
 
+    androidx.compose.runtime.LaunchedEffect(mediaList.size) {
+        if (mediaList.isEmpty()) {
+            onBack()
+        }
+    }
+
     var isUiVisible by remember { mutableStateOf(true) }
     var showContextMenu by remember { mutableStateOf(false) }
     var showDetailsSheet by remember { mutableStateOf(false) }
-    var isFavorite by remember { mutableStateOf(false) }
 
     val currentItem = mediaList.getOrNull(pagerState.currentPage)
+    val isFavorite = currentItem?.id?.let { favoriteIds.contains(it) } ?: false
 
     Box(
         modifier = modifier
@@ -156,19 +165,16 @@ fun PhotoViewerScreen(
                     // 1. Favorit
                     IconButton(
                         onClick = {
-                            isFavorite = !isFavorite
-                            Toast.makeText(
-                                context,
-                                if (isFavorite) "Ditambahkan ke Favorit" else "Dihapus dari Favorit",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            currentItem?.let { item ->
+                                onToggleFavorite(item.id)
+                            }
                         }
                     ) {
                         val favIconRes = if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite
                         Icon(
                             painter = painterResource(id = favIconRes),
                             contentDescription = "Favorit",
-                            tint = if (isFavorite) Color(0xFFE53935) else Color.White,
+                            tint = if (isFavorite) Color(0xFFFF3B30) else Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -204,9 +210,13 @@ fun PhotoViewerScreen(
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = item.mimeType
                                     putExtra(Intent.EXTRA_STREAM, item.uri)
+                                    clipData = ClipData.newUri(context.contentResolver, item.displayName, item.uri)
                                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                                 }
-                                context.startActivity(Intent.createChooser(shareIntent, "Bagikan ke"))
+                                val chooser = Intent.createChooser(shareIntent, "Bagikan ke").apply {
+                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                }
+                                context.startActivity(chooser)
                             }
                         }
                     ) {
@@ -221,7 +231,9 @@ fun PhotoViewerScreen(
                     // 4. Hapus / Delete
                     IconButton(
                         onClick = {
-                            Toast.makeText(context, "Pindahkan ke Sampah", Toast.LENGTH_SHORT).show()
+                            currentItem?.let { item ->
+                                onDeleteRequest(item)
+                            }
                         }
                     ) {
                         Icon(

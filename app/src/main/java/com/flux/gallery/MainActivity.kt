@@ -1,15 +1,22 @@
 package com.flux.gallery
 
 import android.Manifest
+import android.app.Activity
+import android.app.RecoverableSecurityException
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -28,14 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import android.content.Context
-import android.content.Intent
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
+import com.flux.gallery.data.repository.FavoritesManager
 import com.flux.gallery.data.repository.MediaRepository
 import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
 import com.flux.gallery.ui.components.FloatingGlassMenuSheet
 import com.flux.gallery.ui.components.GalleryTab
+import com.flux.gallery.ui.components.GlassDeleteConfirmationSheet
 import com.flux.gallery.ui.components.RecentTopHeader
 import com.flux.gallery.ui.components.SelectionBottomNavBar
 import com.flux.gallery.ui.components.SelectionMoreGlassSheet
@@ -77,6 +84,71 @@ fun MainGalleryScreen() {
     var isLoading by remember { mutableStateOf(true) }
     var isSplashVisible by remember { mutableStateOf(true) }
     var viewingMediaIndex by remember { mutableStateOf<Int?>(null) }
+
+    val favoritesManager = remember { FavoritesManager(context) }
+    var favoriteIds by remember { mutableStateOf(favoritesManager.getFavoriteIds()) }
+
+    var isDeleteConfirmationOpen by remember { mutableStateOf(false) }
+    var pendingDeleteItems by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val deletedIds = pendingDeleteItems.map { it.id }.toSet()
+            if (deletedIds.isNotEmpty()) {
+                mediaGroups = mediaGroups.map { group ->
+                    group.copy(items = group.items.filter { it.id !in deletedIds })
+                }.filter { it.items.isNotEmpty() }
+
+                selectedItemIds = selectedItemIds - deletedIds
+                if (selectedItemIds.isEmpty()) {
+                    isSelectionMode = false
+                }
+                Toast.makeText(context, "${deletedIds.size} foto berhasil dihapus", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Penghapusan dibatalkan", Toast.LENGTH_SHORT).show()
+        }
+        pendingDeleteItems = emptyList()
+    }
+
+    fun executeDelete(items: List<MediaItem>) {
+        if (items.isEmpty()) return
+        val uris = items.map { it.uri }
+        val ids = items.map { it.id }.toSet()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, uris)
+                deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "Gagal membuat permintaan hapus: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            var count = 0
+            uris.forEach { uri ->
+                try {
+                    count += context.contentResolver.delete(uri, null, null)
+                } catch (e: Exception) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                        deleteLauncher.launch(IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build())
+                        return
+                    }
+                }
+            }
+            if (count > 0) {
+                mediaGroups = mediaGroups.map { group ->
+                    group.copy(items = group.items.filter { it.id !in ids })
+                }.filter { it.items.isNotEmpty() }
+                selectedItemIds = selectedItemIds - ids
+                if (selectedItemIds.isEmpty()) isSelectionMode = false
+                Toast.makeText(context, "$count foto berhasil dihapus", Toast.LENGTH_SHORT).show()
+                pendingDeleteItems = emptyList()
+            }
+        }
+    }
 
     val galleryPrefs = remember { context.getSharedPreferences("gallery_prefs", Context.MODE_PRIVATE) }
     var isBlurThumbnails by remember {
@@ -160,7 +232,22 @@ fun MainGalleryScreen() {
             PhotoViewerScreen(
                 mediaList = flattenedMediaList,
                 initialIndex = viewingMediaIndex ?: 0,
-                onBack = { viewingMediaIndex = null }
+                favoriteIds = favoriteIds,
+                onToggleFavorite = { id ->
+                    val nowFav = favoritesManager.toggleFavorite(id)
+                    favoriteIds = favoritesManager.getFavoriteIds()
+                    Toast.makeText(
+                        context,
+                        if (nowFav) "Ditambahkan ke Favorit" else "Dihapus dari Favorit",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
+                onDeleteRequest = { item ->
+                    pendingDeleteItems = listOf(item)
+                    isDeleteConfirmationOpen = true
+                },
+                onBack = { viewingMediaIndex = null },
+                modifier = Modifier.prismalGlassLayer(backdropLayer)
             )
         } else {
             // Live Content Layer that is refracted and sampled by the floating glass pill
@@ -292,26 +379,65 @@ fun MainGalleryScreen() {
                 onShare = {
                     val selectedItems = flattenedMediaList.filter { it.id in selectedItemIds }
                     if (selectedItems.isNotEmpty()) {
-                        val uris = ArrayList(selectedItems.map { it.uri })
-                        val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                            type = "image/*"
-                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        }
-                        try {
-                            context.startActivity(Intent.createChooser(shareIntent, "Bagikan ${selectedItems.size} foto"))
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Gagal membagikan foto", Toast.LENGTH_SHORT).show()
+                        if (selectedItems.size == 1) {
+                            val item = selectedItems.first()
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = item.mimeType
+                                putExtra(Intent.EXTRA_STREAM, item.uri)
+                                clipData = ClipData.newUri(context.contentResolver, item.displayName, item.uri)
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(shareIntent, "Bagikan ke").apply {
+                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                })
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Gagal membagikan foto", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            val uris = ArrayList(selectedItems.map { it.uri })
+                            val isAllImages = selectedItems.all { !it.isVideo }
+                            val isAllVideos = selectedItems.all { it.isVideo }
+                            val mimeType = when {
+                                isAllImages -> "image/*"
+                                isAllVideos -> "video/*"
+                                else -> "*/*"
+                            }
+                            val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = mimeType
+                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                val clip = ClipData.newUri(context.contentResolver, "media", uris.first())
+                                for (i in 1 until uris.size) {
+                                    clip.addItem(ClipData.Item(uris[i]))
+                                }
+                                clipData = clip
+                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            }
+                            try {
+                                context.startActivity(Intent.createChooser(shareIntent, "Bagikan ${selectedItems.size} item ke").apply {
+                                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                })
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Gagal membagikan item", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 },
                 onDelete = {
-                    Toast.makeText(context, "Pindahkan ${selectedItemIds.size} item ke Sampah", Toast.LENGTH_SHORT).show()
-                    isSelectionMode = false
-                    selectedItemIds = emptySet()
+                    val itemsToDelete = flattenedMediaList.filter { it.id in selectedItemIds }
+                    if (itemsToDelete.isNotEmpty()) {
+                        pendingDeleteItems = itemsToDelete
+                        isDeleteConfirmationOpen = true
+                    }
                 },
                 onFavorite = {
-                    Toast.makeText(context, "${selectedItemIds.size} item ditambahkan ke Favorit", Toast.LENGTH_SHORT).show()
+                    val isAdded = favoritesManager.toggleFavorites(selectedItemIds)
+                    favoriteIds = favoritesManager.getFavoriteIds()
+                    Toast.makeText(
+                        context,
+                        if (isAdded) "${selectedItemIds.size} item ditambahkan ke Favorit" else "${selectedItemIds.size} item dihapus dari Favorit",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 },
                 onMore = {
                     isSelectionMoreSheetOpen = true
@@ -329,6 +455,17 @@ fun MainGalleryScreen() {
                 modifier = Modifier.align(Alignment.BottomCenter),
                 onActionSelected = { actionTitle ->
                     when (actionTitle) {
+                        "Tambahkan ke favorit" -> {
+                            val isAdded = favoritesManager.toggleFavorites(selectedItemIds)
+                            favoriteIds = favoritesManager.getFavoriteIds()
+                            Toast.makeText(
+                                context,
+                                if (isAdded) "${selectedItemIds.size} item ditambahkan ke Favorit" else "${selectedItemIds.size} item dihapus dari Favorit",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            isSelectionMode = false
+                            selectedItemIds = emptySet()
+                        }
                         "Salin ke clipboard" -> {
                             val firstItem = flattenedMediaList.firstOrNull { it.id in selectedItemIds }
                             if (firstItem != null) {
@@ -360,6 +497,20 @@ fun MainGalleryScreen() {
                 }
             )
         }
+
+        // iOS Liquid Glass Delete Confirmation Action Sheet
+        GlassDeleteConfirmationSheet(
+            visible = isDeleteConfirmationOpen,
+            itemCount = pendingDeleteItems.size,
+            backdrop = backdropLayer,
+            onConfirmDelete = {
+                executeDelete(pendingDeleteItems)
+            },
+            onDismiss = {
+                isDeleteConfirmationOpen = false
+            },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
 
         // Custom Splash Screen Overlay (Deep Blue + Pure White Flower Glyph)
         SplashScreenOverlay(isVisible = isSplashVisible)
