@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +36,7 @@ import com.flux.gallery.data.repository.MediaRepository
 import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
 import com.flux.gallery.ui.components.FloatingGlassMenuSheet
 import com.flux.gallery.ui.components.GalleryTab
+import com.flux.gallery.ui.components.RecentTopHeader
 import com.flux.gallery.ui.components.SelectionBottomNavBar
 import com.flux.gallery.ui.components.SelectionMoreGlassSheet
 import com.flux.gallery.ui.screens.PhotoViewerScreen
@@ -198,7 +200,8 @@ fun MainGalleryScreen() {
                                 isSelectionMode = false
                                 selectedItemIds = emptySet()
                             },
-                            onMenuClick = { /* Three-dot options menu */ }
+                            onMenuClick = { /* Three-dot options menu */ },
+                            backdrop = backdropLayer
                         )
                     }
                     GalleryTab.ALBUM -> {
@@ -211,6 +214,41 @@ fun MainGalleryScreen() {
                         PlaceholderTabContent(title = "Menu")
                     }
                 }
+            }
+
+            // Floating Liquid Glass Top Header (Locked 52dp DOM height with zero layout snapping)
+            if (selectedTab == GalleryTab.GAMBAR) {
+                val allMediaIds = remember(mediaGroups) { mediaGroups.flatMap { it.items }.map { it.id }.toSet() }
+                val isAllSelected = allMediaIds.isNotEmpty() && selectedItemIds.size == allMediaIds.size
+                RecentTopHeader(
+                    isSelectionMode = isSelectionMode,
+                    selectedCount = selectedItemIds.size,
+                    isAllSelected = isAllSelected,
+                    onSelectAllToggle = {
+                        if (isAllSelected) {
+                            selectedItemIds = emptySet()
+                        } else {
+                            selectedItemIds = flattenedMediaList.map { it.id }.toSet()
+                        }
+                    },
+                    onCancel = {
+                        isSelectionMode = false
+                        selectedItemIds = emptySet()
+                    },
+                    onEnterSelectionMode = {
+                        isSelectionMode = true
+                    },
+                    onCreateClick = {
+                        Toast.makeText(context, "Buat", Toast.LENGTH_SHORT).show()
+                    },
+                    onStartSlideshow = {
+                        Toast.makeText(context, "Mulai Slideshow", Toast.LENGTH_SHORT).show()
+                    },
+                    backdrop = backdropLayer,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                )
             }
 
             // Floating Glass Menu Hamburger Sheet (One UI Bottom Sheet Hub with Prismal Liquid Glass)

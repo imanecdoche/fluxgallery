@@ -20,14 +20,18 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +56,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,8 +71,9 @@ import coil.request.ImageRequest
 import com.flux.gallery.R
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
-import com.flux.gallery.ui.components.SelectionTopHeader
+import com.flux.gallery.ui.components.RecentTopHeader
 import com.flux.gallery.ui.theme.FluxTheme
+import com.styropyr0.prismal.PrismalBackdrop
 import io.github.alexzhirkevich.cupertino.CupertinoActivityIndicator
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -86,6 +93,7 @@ fun RecentScreen(
     onClearSelection: () -> Unit = {},
     onExitSelectionMode: () -> Unit = {},
     onMenuClick: () -> Unit,
+    backdrop: PrismalBackdrop,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -97,24 +105,31 @@ fun RecentScreen(
         mutableIntStateOf(prefs.getInt("grid_columns", 3).coerceIn(2, 5))
     }
 
-    val spacing = 1.5.dp
+    // Pinch-to-zoom multi-touch scroll lock state
+    var isPinchZooming by remember { mutableStateOf(false) }
 
-    Column(
+    val spacing = 1.5.dp
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(FluxTheme.colors.background)
-            .statusBarsPadding()
-            // Discrete Pinch-to-Zoom Gesture Detector
+            // Discrete Pinch-to-Zoom Gesture Detector with Immediate Scroll Interception
             .pointerInput(columnCount) {
                 awaitEachGesture {
                     var hasTriggered = false
                     var initialSpan = 0f
 
                     while (true) {
-                        val event = awaitPointerEvent()
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
                         val pressedPointers = event.changes.filter { it.pressed }
 
                         if (pressedPointers.size >= 2) {
+                            isPinchZooming = true
+                            // Consume pointer deltas in Initial pass so child LazyColumn cannot scroll
+                            pressedPointers.forEach { it.consume() }
+
                             val p1 = pressedPointers[0].position
                             val p2 = pressedPointers[1].position
                             val currentSpan = hypot(p1.x - p2.x, p1.y - p2.y)
@@ -129,7 +144,6 @@ fun RecentScreen(
                                     prefs.edit().putInt("grid_columns", columnCount).apply()
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     hasTriggered = true
-                                    pressedPointers.forEach { it.consume() }
                                 }
                                 // Pinch IN (fingers pinching together -> Zoom Out -> more columns, max 5)
                                 else if (ratio < 0.80f && columnCount < 5) {
@@ -137,58 +151,23 @@ fun RecentScreen(
                                     prefs.edit().putInt("grid_columns", columnCount).apply()
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     hasTriggered = true
-                                    pressedPointers.forEach { it.consume() }
                                 }
                             }
+                        } else if (isPinchZooming && pressedPointers.size == 1) {
+                            // Maintain scroll lock for remaining trailing finger until full release
+                            pressedPointers.forEach { it.consume() }
                         } else if (pressedPointers.isEmpty()) {
                             // All fingers released, end of gesture cycle
+                            isPinchZooming = false
                             break
                         }
                     }
                 }
             }
     ) {
-        if (isSelectionMode) {
-            val allMediaIds = remember(groups) { groups.flatMap { it.items }.map { it.id }.toSet() }
-            val isAllSelected = allMediaIds.isNotEmpty() && selectedItemIds.size == allMediaIds.size
-            SelectionTopHeader(
-                visible = true,
-                selectedCount = selectedItemIds.size,
-                isAllSelected = isAllSelected,
-                onSelectAllToggle = {
-                    if (isAllSelected) {
-                        onClearSelection()
-                    } else {
-                        onSelectAll()
-                    }
-                },
-                onCancel = onExitSelectionMode
-            )
-        } else {
-            // Top Action Bar with 3-dot Menu
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onMenuClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_more_vert),
-                        contentDescription = "Opsi lainnya",
-                        tint = FluxTheme.colors.headerText,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        }
-
         if (isLoading) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CupertinoActivityIndicator(
@@ -198,9 +177,7 @@ fun RecentScreen(
             }
         } else if (groups.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -211,9 +188,12 @@ fun RecentScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !isPinchZooming,
+                contentPadding = PaddingValues(
+                    top = statusBarTop + 54.dp,
+                    bottom = 100.dp
+                )
             ) {
                 items(groups, key = { it.title }) { group ->
                     MediaGroupSection(
@@ -226,10 +206,6 @@ fun RecentScreen(
                         onEnterSelectionMode = onEnterSelectionMode,
                         onToggleSelection = onToggleSelection
                     )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }

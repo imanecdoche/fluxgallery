@@ -62,6 +62,7 @@ import com.styropyr0.prismal.sources.rememberPrismalGlassLayer
 import com.styropyr0.prismal.sources.rememberPrismalWrappedSource
 import com.styropyr0.prismal.drawPrismalGlass
 import com.styropyr0.prismal.effects.applyPrismalGlassEffects
+import com.styropyr0.prismal.effects.prismalBlur
 import com.styropyr0.prismal.effects.prismalLens
 import com.styropyr0.prismal.specular.PrismalSpecular
 import com.styropyr0.prismal.interactive.PrismalSpringMotion
@@ -288,6 +289,10 @@ fun PrismalGlassBottomTabs(
                     shape = { PrismalCapsule() },
                     effects = {
                         val effectScale = if (renderWithLowOverhead) 1f else dampedDragAnimation.scaleY
+                        val blurPx = dropletBlurRadius?.let { with(density) { it.toPx() } } ?: 0f
+                        if (blurPx > 0f) {
+                            prismalBlur(blurPx)
+                        }
                         prismalLens(
                             refractionHeight = with(density) { dropletRefractionHeight.toPx() } * effectScale,
                             refractionAmount = with(density) { dropletRefractionAmount.toPx() } * effectScale,
@@ -316,8 +321,8 @@ fun PrismalGlassBottomTabs(
                     } else null,
                     onDrawSurface = {
                         drawRect(
-                            if (isLightTheme) Color.White.copy(0.28f)
-                            else Color.White.copy(0.18f)
+                            if (isLightTheme) Color.White.copy(0.48f)
+                            else Color.White.copy(0.36f)
                         )
                     }
                 )
