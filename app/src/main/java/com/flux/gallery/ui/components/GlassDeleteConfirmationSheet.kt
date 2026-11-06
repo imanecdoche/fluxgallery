@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,7 +54,6 @@ fun GlassDeleteConfirmationSheet(
 ) {
     val density = LocalDensity.current
     val surfaceColor = FluxTheme.colors.glassSurface
-    val dividerColor = FluxTheme.colors.glassDivider
 
     BackHandler(enabled = visible) {
         onDismiss()
@@ -78,7 +77,7 @@ fun GlassDeleteConfirmationSheet(
         )
     }
 
-    // Popover hovering directly above the floating pill with matching width
+    // Popover hovering directly above the bottom area with zero dividers
     AnimatedVisibility(
         visible = visible,
         enter = scaleIn(
@@ -97,8 +96,8 @@ fun GlassDeleteConfirmationSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 84.dp) // Sits neatly above the floating pill
-                .padding(horizontal = 24.dp), // Matches floating pill width exactly
+                .padding(bottom = 84.dp)
+                .padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -106,7 +105,7 @@ fun GlassDeleteConfirmationSheet(
                     .fillMaxWidth()
                     .drawPrismalGlass(
                         backdrop = backdrop,
-                        shape = { RoundedCornerShape(20.dp) },
+                        shape = { RoundedCornerShape(22.dp) },
                         specular = { PrismalSpecular.Default.copy(alpha = 0.75f) },
                         effects = {
                             applyPrismalGlassEffects(
@@ -115,13 +114,15 @@ fun GlassDeleteConfirmationSheet(
                                 luminance = 0.5f,
                                 blurRadiusPx = with(density) { 14.dp.toPx() },
                                 refractionHeightPx = with(density) { 18.dp.toPx() },
-                                refractionAmountPx = with(density) { 16.dp.toPx() }
+                                refractionAmountPx = with(density) { 14.dp.toPx() }
                             )
                         },
                         onDrawSurface = { drawRect(surfaceColor) }
                     )
-                    .clip(RoundedCornerShape(20.dp)),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .clip(RoundedCornerShape(22.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Teks singkat di atasnya
                 val titleText = if (itemCount <= 1) "Hapus foto ini?" else "Hapus $itemCount foto ini?"
@@ -132,29 +133,23 @@ fun GlassDeleteConfirmationSheet(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                // Divider horizontal tipis
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.6.dp)
-                        .background(dividerColor)
-                )
+                // ZERO DIVIDERS (No lines!)
 
-                // Row berisi tombol Batal dan Hapus dalam satu baris berdampingan
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(44.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Tombol Batal
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .clip(RoundedCornerShape(14.dp))
                             .clickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {
@@ -167,19 +162,13 @@ fun GlassDeleteConfirmationSheet(
                         )
                     }
 
-                    // Divider vertikal tipis pemisah Batal dan Hapus
-                    Box(
-                        modifier = Modifier
-                            .width(0.6.dp)
-                            .fillMaxHeight()
-                            .background(dividerColor)
-                    )
+                    // ZERO DIVIDERS - no line between buttons
 
-                    // Tombol Hapus (Destructive Red)
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .clip(RoundedCornerShape(14.dp))
                             .clickable {
                                 onDismiss()
                                 onConfirmDelete()

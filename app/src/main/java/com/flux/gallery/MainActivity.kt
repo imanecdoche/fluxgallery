@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -89,6 +90,7 @@ fun MainGalleryScreen() {
     var favoriteIds by remember { mutableStateOf(favoritesManager.getFavoriteIds()) }
 
     var isDeleteConfirmationOpen by remember { mutableStateOf(false) }
+    var isDeleteConfirming by remember { mutableStateOf(false) }
     var pendingDeleteItems by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
 
     val deleteLauncher = rememberLauncherForActivityResult(
@@ -219,12 +221,29 @@ fun MainGalleryScreen() {
         isMenuSheetOpen = false
     }
 
-    BackHandler(enabled = isSelectionMode) {
+    BackHandler(enabled = isDeleteConfirming) {
+        isDeleteConfirming = false
+    }
+
+    BackHandler(enabled = isSelectionMode && !isDeleteConfirming) {
         isSelectionMode = false
         selectedItemIds = emptySet()
+        isDeleteConfirming = false
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        if (isDeleteConfirming) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = { isDeleteConfirming = false }
+                    )
+            )
+        }
+
         if (viewingMediaIndex != null) {
             BackHandler {
                 viewingMediaIndex = null
@@ -376,6 +395,7 @@ fun MainGalleryScreen() {
                 },
                 isSelectionMode = isSelectionMode,
                 selectedCount = selectedItemIds.size,
+                isDeleteConfirming = isDeleteConfirming,
                 onShare = {
                     val selectedItems = flattenedMediaList.filter { it.id in selectedItemIds }
                     if (selectedItems.isNotEmpty()) {
@@ -427,8 +447,15 @@ fun MainGalleryScreen() {
                     val itemsToDelete = flattenedMediaList.filter { it.id in selectedItemIds }
                     if (itemsToDelete.isNotEmpty()) {
                         pendingDeleteItems = itemsToDelete
-                        isDeleteConfirmationOpen = true
+                        isDeleteConfirming = true
                     }
+                },
+                onConfirmDelete = {
+                    isDeleteConfirming = false
+                    executeDelete(pendingDeleteItems)
+                },
+                onDismissDeleteConfirm = {
+                    isDeleteConfirming = false
                 },
                 onFavorite = {
                     val isAdded = favoritesManager.toggleFavorites(selectedItemIds)
@@ -498,19 +525,21 @@ fun MainGalleryScreen() {
             )
         }
 
-        // iOS Liquid Glass Delete Confirmation Action Sheet
-        GlassDeleteConfirmationSheet(
-            visible = isDeleteConfirmationOpen,
-            itemCount = pendingDeleteItems.size,
-            backdrop = backdropLayer,
-            onConfirmDelete = {
-                executeDelete(pendingDeleteItems)
-            },
-            onDismiss = {
-                isDeleteConfirmationOpen = false
-            },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        // iOS Liquid Glass Delete Confirmation Action Sheet (For Fullscreen Photo Viewer)
+        if (viewingMediaIndex != null) {
+            GlassDeleteConfirmationSheet(
+                visible = isDeleteConfirmationOpen,
+                itemCount = pendingDeleteItems.size,
+                backdrop = backdropLayer,
+                onConfirmDelete = {
+                    executeDelete(pendingDeleteItems)
+                },
+                onDismiss = {
+                    isDeleteConfirmationOpen = false
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
 
         // Custom Splash Screen Overlay (Deep Blue + Pure White Flower Glyph)
         SplashScreenOverlay(isVisible = isSplashVisible)
