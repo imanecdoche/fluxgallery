@@ -307,7 +307,7 @@ fun PrismalGlassBottomTabs(
                         )
                     },
                     specular = {
-                        PrismalSpecular.Default.copy(alpha = 0.85f)
+                        PrismalSpecular.Default.copy(alpha = 0.35f)
                     },
                     depthShadow = {
                         PrismalDepthShadow(alpha = 0.30f)
@@ -327,8 +327,8 @@ fun PrismalGlassBottomTabs(
                     } else null,
                     onDrawSurface = {
                         drawRect(
-                            if (isLightTheme) Color.White.copy(0.36f)
-                            else Color.White.copy(0.18f)
+                            if (isLightTheme) Color.White.copy(0.18f)
+                            else Color.White.copy(0.06f)
                         )
                     }
                 )

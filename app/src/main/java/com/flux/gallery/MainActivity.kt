@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.flux.gallery.data.model.Album
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.data.repository.FavoritesManager
@@ -47,6 +48,8 @@ import com.flux.gallery.ui.components.GlassDeleteConfirmationSheet
 import com.flux.gallery.ui.components.RecentTopHeader
 import com.flux.gallery.ui.components.SelectionBottomNavBar
 import com.flux.gallery.ui.components.SelectionMoreGlassSheet
+import com.flux.gallery.ui.screens.AlbumDetailScreen
+import com.flux.gallery.ui.screens.AlbumsScreen
 import com.flux.gallery.ui.screens.PhotoViewerScreen
 import com.flux.gallery.ui.screens.RecentScreen
 import com.flux.gallery.ui.screens.SplashScreenOverlay
@@ -85,6 +88,8 @@ fun MainGalleryScreen() {
     var isLoading by remember { mutableStateOf(true) }
     var isSplashVisible by remember { mutableStateOf(true) }
     var viewingMediaIndex by remember { mutableStateOf<Int?>(null) }
+    var viewingMediaItems by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+    var selectedAlbum by remember { mutableStateOf<Album?>(null) }
 
     val favoritesManager = remember { FavoritesManager(context) }
     var favoriteIds by remember { mutableStateOf(favoritesManager.getFavoriteIds()) }
@@ -231,6 +236,10 @@ fun MainGalleryScreen() {
         isDeleteConfirming = false
     }
 
+    BackHandler(enabled = selectedAlbum != null && viewingMediaIndex == null) {
+        selectedAlbum = null
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (isDeleteConfirming) {
             Box(
@@ -249,7 +258,7 @@ fun MainGalleryScreen() {
                 viewingMediaIndex = null
             }
             PhotoViewerScreen(
-                mediaList = flattenedMediaList,
+                mediaList = viewingMediaItems.ifEmpty { flattenedMediaList },
                 initialIndex = viewingMediaIndex ?: 0,
                 favoriteIds = favoriteIds,
                 onToggleFavorite = { id ->
@@ -286,6 +295,7 @@ fun MainGalleryScreen() {
                             onMediaClick = { clickedItem ->
                                 val index = flattenedMediaList.indexOfFirst { it.id == clickedItem.id }
                                 if (index != -1) {
+                                    viewingMediaItems = flattenedMediaList
                                     viewingMediaIndex = index
                                 }
                             },
@@ -320,7 +330,32 @@ fun MainGalleryScreen() {
                         )
                     }
                     GalleryTab.ALBUM -> {
-                        PlaceholderTabContent(title = "Album")
+                        val albums = remember(flattenedMediaList, favoriteIds) {
+                            repository.buildAlbums(flattenedMediaList, favoriteIds)
+                        }
+                        if (selectedAlbum != null) {
+                            AlbumDetailScreen(
+                                album = selectedAlbum!!,
+                                onBack = { selectedAlbum = null },
+                                onMediaClick = { clickedItem ->
+                                    val index = selectedAlbum!!.items.indexOfFirst { it.id == clickedItem.id }
+                                    if (index != -1) {
+                                        viewingMediaItems = selectedAlbum!!.items
+                                        viewingMediaIndex = index
+                                    }
+                                }
+                            )
+                        } else {
+                            AlbumsScreen(
+                                albums = albums,
+                                onAlbumClick = { album ->
+                                    selectedAlbum = album
+                                },
+                                onNewAlbumClick = {
+                                    Toast.makeText(context, "Buat Album Baru", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
                     }
                     GalleryTab.CARI -> {
                         PlaceholderTabContent(title = "Cari")
@@ -391,6 +426,7 @@ fun MainGalleryScreen() {
                     } else {
                         isMenuSheetOpen = false
                         selectedTab = newTab
+                        selectedAlbum = null
                     }
                 },
                 isSelectionMode = isSelectionMode,

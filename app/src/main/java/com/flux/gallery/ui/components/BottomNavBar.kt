@@ -133,7 +133,11 @@ fun FloatingGlassBottomNavBar(
                     val inactiveTabColor = if (FluxTheme.colors.isDark) Color.White.copy(alpha = 0.90f) else FluxTheme.colors.inactive
                     GalleryTab.entries.forEach { tab ->
                         val isSelected = isLayerActive || tab.ordinal == currentHighlight
-                        val itemColor = if (isLayerActive) FluxTheme.colors.activeTeal else inactiveTabColor
+                        val itemColor = when {
+                            isLayerActive -> FluxTheme.colors.activeTeal
+                            tab.ordinal == currentHighlight -> Color.Transparent
+                            else -> inactiveTabColor
+                        }
                         val iconRes = tab.normalIconRes
 
                         PrismalGlassBottomTab(

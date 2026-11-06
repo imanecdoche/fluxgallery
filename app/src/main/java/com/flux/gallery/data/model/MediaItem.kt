@@ -12,6 +12,7 @@ data class MediaItem(
     val durationMs: Long = 0L,
     val relativePath: String = "",
     val fullPath: String = "",
+    val bucketName: String = "",
     val sizeBytes: Long = 0L,
     val width: Int = 0,
     val height: Int = 0

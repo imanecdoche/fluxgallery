@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.flux.gallery.R
+import com.flux.gallery.data.model.Album
 import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,7 @@ class MediaRepository(private val context: Context) {
             MediaStore.Images.Media.SIZE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
+            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Images.Media.RELATIVE_PATH else MediaStore.Images.Media.DATA,
             MediaStore.Images.Media.DATA
         )
@@ -49,6 +52,7 @@ class MediaRepository(private val context: Context) {
                 val sizeCol = cursor.getColumnIndex(MediaStore.Images.Media.SIZE)
                 val widthCol = cursor.getColumnIndex(MediaStore.Images.Media.WIDTH)
                 val heightCol = cursor.getColumnIndex(MediaStore.Images.Media.HEIGHT)
+                val bucketCol = cursor.getColumnIndex(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
                 val dataCol = cursor.getColumnIndex(MediaStore.Images.Media.DATA)
                 val relPathCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
@@ -65,6 +69,7 @@ class MediaRepository(private val context: Context) {
                     val size = if (sizeCol != -1) cursor.getLong(sizeCol) else 0L
                     val width = if (widthCol != -1) cursor.getInt(widthCol) else 0
                     val height = if (heightCol != -1) cursor.getInt(heightCol) else 0
+                    val bucketName = if (bucketCol != -1) cursor.getString(bucketCol) ?: "" else ""
                     val fullPath = if (dataCol != -1) cursor.getString(dataCol) ?: "" else ""
                     val relPath = if (relPathCol != -1) cursor.getString(relPathCol) ?: "" else fullPath
 
@@ -83,6 +88,7 @@ class MediaRepository(private val context: Context) {
                             isVideo = false,
                             relativePath = relPath,
                             fullPath = fullPath,
+                            bucketName = bucketName,
                             sizeBytes = size,
                             width = width,
                             height = height
@@ -105,6 +111,7 @@ class MediaRepository(private val context: Context) {
             MediaStore.Video.Media.SIZE,
             MediaStore.Video.Media.WIDTH,
             MediaStore.Video.Media.HEIGHT,
+            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Video.Media.RELATIVE_PATH else MediaStore.Video.Media.DATA,
             MediaStore.Video.Media.DATA
         )
@@ -126,6 +133,7 @@ class MediaRepository(private val context: Context) {
                 val sizeCol = cursor.getColumnIndex(MediaStore.Video.Media.SIZE)
                 val widthCol = cursor.getColumnIndex(MediaStore.Video.Media.WIDTH)
                 val heightCol = cursor.getColumnIndex(MediaStore.Video.Media.HEIGHT)
+                val bucketCol = cursor.getColumnIndex(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
                 val dataCol = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
                 val relPathCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     cursor.getColumnIndex(MediaStore.Video.Media.RELATIVE_PATH)
@@ -143,6 +151,7 @@ class MediaRepository(private val context: Context) {
                     val size = if (sizeCol != -1) cursor.getLong(sizeCol) else 0L
                     val width = if (widthCol != -1) cursor.getInt(widthCol) else 0
                     val height = if (heightCol != -1) cursor.getInt(heightCol) else 0
+                    val bucketName = if (bucketCol != -1) cursor.getString(bucketCol) ?: "" else ""
                     val fullPath = if (dataCol != -1) cursor.getString(dataCol) ?: "" else ""
                     val relPath = if (relPathCol != -1) cursor.getString(relPathCol) ?: "" else fullPath
 
@@ -162,6 +171,7 @@ class MediaRepository(private val context: Context) {
                             durationMs = duration,
                             relativePath = relPath,
                             fullPath = fullPath,
+                            bucketName = bucketName,
                             sizeBytes = size,
                             width = width,
                             height = height
@@ -216,5 +226,86 @@ class MediaRepository(private val context: Context) {
                 items = items
             )
         }
+    }
+
+    fun buildAlbums(mediaList: List<MediaItem>, favoriteIds: Set<Long>): List<Album> {
+        val albums = mutableListOf<Album>()
+
+        // 1. Smart Album: Favorit
+        val favItems = mediaList.filter { it.id in favoriteIds }
+        albums.add(
+            Album(
+                id = "smart_favorites",
+                name = "Favorit",
+                count = favItems.size,
+                coverUri = favItems.firstOrNull()?.uri ?: mediaList.firstOrNull()?.uri,
+                isSmartAlbum = true,
+                iconRes = R.drawable.ic_favorite_filled,
+                items = favItems
+            )
+        )
+
+        // 2. Smart Album: Video
+        val videoItems = mediaList.filter { it.isVideo }
+        if (videoItems.isNotEmpty()) {
+            albums.add(
+                Album(
+                    id = "smart_videos",
+                    name = "Video",
+                    count = videoItems.size,
+                    coverUri = videoItems.firstOrNull()?.uri,
+                    isSmartAlbum = true,
+                    items = videoItems
+                )
+            )
+        }
+
+        // 3. Folder Albums (e.g. Kamera, Tangkapan Layar, WhatsApp, etc.)
+        val folderGroups = mediaList.groupBy { item ->
+            val raw = item.bucketName.ifBlank { extractFolderName(item) }
+            when (raw.lowercase()) {
+                "camera", "dcim" -> "Kamera"
+                "screenshots" -> "Tangkapan Layar"
+                "download", "downloads" -> "Unduhan"
+                else -> raw
+            }
+        }
+
+        // Sort so "Kamera" and "Tangkapan Layar" are first among folders
+        val sortedFolderNames = folderGroups.keys.sortedWith { a, b ->
+            when {
+                a == "Kamera" -> -1
+                b == "Kamera" -> 1
+                a == "Tangkapan Layar" -> -1
+                b == "Tangkapan Layar" -> 1
+                else -> a.compareTo(b, ignoreCase = true)
+            }
+        }
+
+        for (folderName in sortedFolderNames) {
+            val items = folderGroups[folderName] ?: emptyList()
+            albums.add(
+                Album(
+                    id = "folder_$folderName",
+                    name = folderName,
+                    count = items.size,
+                    coverUri = items.firstOrNull()?.uri,
+                    isSmartAlbum = false,
+                    items = items
+                )
+            )
+        }
+
+        return albums
+    }
+
+    private fun extractFolderName(item: MediaItem): String {
+        val rel = item.relativePath.trim('/').replace('\\', '/')
+        if (rel.isNotEmpty()) {
+            val last = rel.split('/').lastOrNull { it.isNotBlank() }
+            if (!last.isNullOrBlank()) return last
+        }
+        val parent = java.io.File(item.fullPath).parentFile?.name
+        return if (!parent.isNullOrBlank()) parent else "Lainnya"
     }
 }
