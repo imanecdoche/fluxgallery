@@ -43,77 +43,36 @@ import com.flux.gallery.R
 import com.flux.gallery.data.model.Album
 import com.flux.gallery.ui.theme.FluxTheme
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+
 @Composable
 fun AlbumsScreen(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
-    onNewAlbumClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val surfaceColor = FluxTheme.colors.glassSurface
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .statusBarsPadding()
+    // 2-Column iOS-style Album Grid scrolling smoothly underneath the floating glass top header
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = statusBarTop + 54.dp,
+            bottom = 120.dp // To float comfortably above the bottom navigation pill
+        ),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = modifier.fillMaxSize()
     ) {
-        // 1. Top Header: Large "Album" Title + 40dp Liquid Glass '+' Button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Album",
-                color = FluxTheme.colors.textPrimary,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp
+        items(albums, key = { it.id }) { album ->
+            AlbumCardItem(
+                album = album,
+                onClick = { onAlbumClick(album) }
             )
-
-            // 40dp Circular Glass Add Button
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(surfaceColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onNewAlbumClick
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_add),
-                    contentDescription = "Tambah Album",
-                    tint = FluxTheme.colors.activeTeal,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        // 2. 2-Column iOS-style Album Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp,
-                bottom = 120.dp // To float comfortably above the bottom navigation pill
-            ),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(albums, key = { it.id }) { album ->
-                AlbumCardItem(
-                    album = album,
-                    onClick = { onAlbumClick(album) }
-                )
-            }
         }
     }
 }

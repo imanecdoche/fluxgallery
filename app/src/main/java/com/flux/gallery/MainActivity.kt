@@ -41,6 +41,7 @@ import com.flux.gallery.data.model.MediaDateGroup
 import com.flux.gallery.data.model.MediaItem
 import com.flux.gallery.data.repository.FavoritesManager
 import com.flux.gallery.data.repository.MediaRepository
+import com.flux.gallery.ui.components.AlbumsTopHeader
 import com.flux.gallery.ui.components.FloatingGlassBottomNavBar
 import com.flux.gallery.ui.components.FloatingGlassMenuSheet
 import com.flux.gallery.ui.components.GalleryTab
@@ -350,9 +351,6 @@ fun MainGalleryScreen() {
                                 albums = albums,
                                 onAlbumClick = { album ->
                                     selectedAlbum = album
-                                },
-                                onNewAlbumClick = {
-                                    Toast.makeText(context, "Buat Album Baru", Toast.LENGTH_SHORT).show()
                                 }
                             )
                         }
@@ -398,6 +396,25 @@ fun MainGalleryScreen() {
                     onBlurThumbnailsChange = { isBlurred ->
                         isBlurThumbnails = isBlurred
                         galleryPrefs.edit().putBoolean("blur_thumbnails", isBlurred).apply()
+                    },
+                    backdrop = backdropLayer,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                )
+            }
+
+            // Floating Liquid Glass Top Header for Albums (Zero black background, pure floating glass)
+            if (selectedTab == GalleryTab.ALBUM && selectedAlbum == null) {
+                AlbumsTopHeader(
+                    onCreateAlbumClick = {
+                        Toast.makeText(context, "Buat Album Baru", Toast.LENGTH_SHORT).show()
+                    },
+                    onSelectAlbumsClick = {
+                        Toast.makeText(context, "Pilih Album", Toast.LENGTH_SHORT).show()
+                    },
+                    onSortAlbumsClick = {
+                        Toast.makeText(context, "Urutkan", Toast.LENGTH_SHORT).show()
                     },
                     backdrop = backdropLayer,
                     modifier = Modifier
